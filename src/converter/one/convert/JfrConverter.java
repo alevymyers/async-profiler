@@ -106,8 +106,7 @@ public abstract class JfrConverter extends Classifier {
 
         long startTicks = args.from != 0 ? toTicks(args.from) : Long.MIN_VALUE;
         long endTicks = args.to != 0 ? toTicks(args.to) : Long.MAX_VALUE;
-
-        for (Event event; (event = jfr.readEvent(eventClass)) != null; ) {
+        for (Event event; (event = jfr.readEvent(ThreadDump.class)) != null; ) {
             if (event.time >= startTicks && event.time <= endTicks) {
                 if (threadStates == null || threadStates.get(((ExecutionSample) event).threadState)) {
                     if (timeIntervals == null || timeIntervals.contains(jfr.eventTimeToNanos(event.time))) {

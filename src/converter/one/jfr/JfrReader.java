@@ -618,6 +618,7 @@ public class JfrReader implements Closeable {
         registerEvent("jdk.GCHeapSummary", GCHeapSummary.class);
         registerEvent("jdk.ObjectCount", ObjectCount.class);
         registerEvent("jdk.ObjectCountAfterGC", ObjectCount.class);
+        registerEvent("jdk.ThreadDump", ThreadDump.class);
         registerEvent("profiler.ProcessSample", ProcessSample.class);
 
         JfrClass wallClass = typesByName.get("profiler.WallClockSample");
