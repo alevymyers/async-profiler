@@ -1,0 +1,13 @@
+data/schwab_config.json
+data/schwab_token.json
+data/ssl_cert.pem
+data/ssl_key.pem
+data/portfolio.json
+data/accounts.json
+data/trades.json
+data/loans.json
+data/kraken.json
+data/imports/
+__pycache__/
+*.pyc
+.venv/

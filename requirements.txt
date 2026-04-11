@@ -1,0 +1,4 @@
+flask>=3.0
+requests>=2.31
+yfinance>=0.2.23
+cryptography>=41.0
