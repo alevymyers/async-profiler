@@ -35,7 +35,9 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open **https://127.0.0.1:8080** in your browser. On first run, a self-signed SSL certificate is generated in `data/` — your browser will warn you; click through. SSL is required for the Schwab OAuth callback.
+Open **https://127.0.0.1:8080** in your browser. On first run the app creates the `data/` directory, all JSON data files, and a self-signed SSL certificate automatically — your browser will warn about the cert; click through. SSL is required for the Schwab OAuth callback.
+
+The only file you must create manually is `data/schwab_config.json` (see Schwab Integration below).
 
 ---
 
