@@ -334,23 +334,26 @@ def add_loan():
     if not name:
         return jsonify({"error": "Name is required"}), 400
     try:
-        balance         = float(data.get("balance", 0))
-        monthly_payment = float(data.get("monthly_payment", 0))
-        rate_raw        = data.get("interest_rate")
-        interest_rate   = float(rate_raw) if rate_raw not in (None, "") else 0.0
+        original_balance = float(data.get("original_balance", data.get("balance", 0)))
+        balance          = original_balance
+        monthly_payment  = float(data.get("monthly_payment", 0))
+        rate_raw         = data.get("interest_rate")
+        interest_rate    = float(rate_raw) if rate_raw not in (None, "") else 0.0
     except (TypeError, ValueError):
         return jsonify({"error": "Invalid number"}), 400
 
     db   = load_loans()
     loan = {
-        "id":              str(uuid.uuid4()),
-        "name":            name,
-        "type":            data.get("type", "other").strip(),
-        "balance":         balance,
-        "monthly_payment": monthly_payment,
-        "interest_rate":   interest_rate,
-        "notes":           data.get("notes", "").strip(),
-        "updated_at":      datetime.utcnow().isoformat(),
+        "id":               str(uuid.uuid4()),
+        "name":             name,
+        "type":             data.get("type", "other").strip(),
+        "balance":          balance,
+        "original_balance": original_balance,
+        "start_date":       data.get("start_date", "").strip(),
+        "monthly_payment":  monthly_payment,
+        "interest_rate":    interest_rate,
+        "notes":            data.get("notes", "").strip(),
+        "updated_at":       datetime.utcnow().isoformat(),
     }
     db["loans"].append(loan)
     save_loans(db)
@@ -362,13 +365,16 @@ def update_loan(lid):
     db   = load_loans()
     for l in db["loans"]:
         if l["id"] == lid:
-            for k in ("name", "type", "notes"):
+            for k in ("name", "type", "notes", "start_date"):
                 if k in data:
                     l[k] = data[k]
-            for k in ("balance", "monthly_payment", "interest_rate"):
+            for k in ("balance", "monthly_payment", "interest_rate", "original_balance"):
                 if k in data:
                     try:    l[k] = float(data[k]) if data[k] not in (None, "") else 0.0
                     except: return jsonify({"error": f"Invalid {k}"}), 400
+            # keep balance in sync with original_balance
+            if "original_balance" in data:
+                l["balance"] = l["original_balance"]
             l["updated_at"] = datetime.utcnow().isoformat()
             save_loans(db)
             return jsonify(l)

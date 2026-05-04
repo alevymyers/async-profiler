@@ -830,12 +830,20 @@
         </select>
       </div>
       <div>
-        <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Current Balance ($) *</label>
-        <input id="l-balance" type="number" class="dark-input" placeholder="250000" step="0.01" min="0" />
+        <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Original Amount ($) *</label>
+        <input id="l-original-balance" type="number" class="dark-input" placeholder="250000" step="0.01" min="0"
+               oninput="updateLoanBalancePreview()" />
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Start Date <span class="normal-case font-normal text-slate-600">(optional — auto-computes current balance)</span></label>
+        <input id="l-start-date" type="date" class="dark-input"
+               oninput="updateLoanBalancePreview()" />
+        <div id="l-balance-preview" class="hidden mt-2 text-xs text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-lg px-3 py-2"></div>
       </div>
       <div>
         <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Monthly Payment ($) *</label>
         <input id="l-monthly" type="number" class="dark-input" placeholder="1500" step="0.01" min="0"
+               oninput="updateLoanBalancePreview()"
                onkeydown="if(event.key==='Enter')submitLoan()" />
       </div>
       <div>
@@ -1112,6 +1120,19 @@ const LOAN_TYPES = {
   'other':    {label:'Other',       color:'#94a3b8'},
 };
 function loanType(t){ return LOAN_TYPES[t] || LOAN_TYPES['other']; }
+function loanMonthsElapsed(startDateStr){
+  const d=new Date(startDateStr+'T00:00:00');
+  const now=new Date();
+  return Math.max(0,(now.getFullYear()-d.getFullYear())*12+(now.getMonth()-d.getMonth()));
+}
+function loanEffectiveBalance(l){
+  const orig = l.original_balance ?? l.balance ?? 0;
+  if(orig > 0 && l.start_date){
+    const months=loanMonthsElapsed(l.start_date);
+    return Math.max(0, orig - months*(l.monthly_payment||0));
+  }
+  return orig;
+}
 
 // ── Formatting ─────────────────────────────────────────────────
 function fmtUSD(n, alwaysHide=false){
@@ -1353,7 +1374,7 @@ function renderAll(){ renderOverview(); renderCrypto(); renderAccounts(); render
 function renderOverview(){
   const cryptoTotal  = S.holdings.reduce((s,h)=>{ const p=S.prices[h.symbol]; return s+(p!=null?h.amount*p:0); }, 0);
   const accountTotal = S.accounts.reduce((s,a)=>s+a.value, 0);
-  const loansTotal   = S.loans.reduce((s,l)=>s+l.balance, 0);
+  const loansTotal   = S.loans.reduce((s,l)=>s+loanEffectiveBalance(l), 0);
   const schwabTotal  = S.schwabPositions?.total_value ?? 0;
   const total        = cryptoTotal + accountTotal + schwabTotal - loansTotal;
   const pnl          = S.perf?.total_realized_pnl;
@@ -1411,7 +1432,7 @@ function renderOverview(){
   const byLoanType = {};
   for(const l of S.loans){
     if(!byLoanType[l.type]) byLoanType[l.type]={value:0,count:0};
-    byLoanType[l.type].value+=l.balance;
+    byLoanType[l.type].value+=loanEffectiveBalance(l);
     byLoanType[l.type].count+=1;
   }
   for(const [type,info] of Object.entries(byLoanType)){
@@ -1772,26 +1793,41 @@ function renderLoans(){
   if(!wrap) return;
   if(!S.loans.length){ empty.classList.remove('hidden'); wrap.innerHTML=''; return; }
   empty.classList.add('hidden');
-  const sorted=[...S.loans].sort((a,b)=>b.balance-a.balance);
-  const total=S.loans.reduce((s,l)=>s+l.balance,0);
+  const sorted=[...S.loans].sort((a,b)=>loanEffectiveBalance(b)-loanEffectiveBalance(a));
+  const total=S.loans.reduce((s,l)=>s+loanEffectiveBalance(l),0);
   let rows='';
   for(const l of sorted){
     const cfg=loanType(l.type);
-    const pct=total?l.balance/total*100:0;
-    const monthsLeft = l.monthly_payment>0 ? Math.ceil(l.balance/l.monthly_payment) : null;
+    const eff=loanEffectiveBalance(l);
+    const orig=l.original_balance ?? l.balance ?? 0;
+    const pct=total?eff/total*100:0;
+    const monthsLeft = l.monthly_payment>0 ? Math.ceil(eff/l.monthly_payment) : null;
     const payoffStr = monthsLeft!=null
       ? (monthsLeft>24?`~${Math.floor(monthsLeft/12)}y ${monthsLeft%12}m`:`~${monthsLeft}mo`)
       : '—';
+    let startInfo='';
+    if(l.start_date){
+      const mo=loanMonthsElapsed(l.start_date);
+      const sd=new Date(l.start_date+'T00:00:00');
+      const sdStr=sd.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+      startInfo=`<div class="text-slate-600 text-xs mt-0.5">Started ${sdStr} · ${mo}mo elapsed</div>`;
+    }
+    let origInfo='';
+    if(l.start_date && orig !== eff){
+      origInfo=`<div class="text-slate-600 text-xs mt-0.5">Orig ${fmtUSD(orig)}</div>`;
+    }
     rows+=`<tr>
       <td class="px-5 py-4">
         <div class="font-medium text-white text-sm">${l.name}</div>
+        ${startInfo}
         ${l.notes?`<div class="text-slate-600 text-xs mt-0.5">${l.notes}</div>`:''}
       </td>
       <td class="px-5 py-4">
         <span class="acct-badge" style="background:${cfg.color}18;color:${cfg.color};border:1px solid ${cfg.color}28">${cfg.label}</span>
       </td>
       <td class="px-5 py-4 text-right whitespace-nowrap">
-        <span class="pnl-neg font-semibold text-sm">-${fmtUSD(l.balance)}</span>
+        <span class="pnl-neg font-semibold text-sm">-${fmtUSD(eff)}</span>
+        ${origInfo}
       </td>
       <td class="px-5 py-4 text-right whitespace-nowrap">
         <span class="text-slate-300 text-sm">${fmtUSD(l.monthly_payment)}<span class="text-slate-600 text-xs">/mo</span></span>
@@ -1807,7 +1843,7 @@ function renderLoans(){
       <td class="px-5 py-4">
         <div class="flex items-center justify-end gap-1.5">
           <button class="act-btn edit" onclick="editLoan('${l.id}')" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="act-btn delete" onclick="deleteLoan('${l.id}','${l.name.replace(/'/g,"\\'")}','${l.balance}')" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="act-btn delete" onclick="deleteLoan('${l.id}','${l.name.replace(/'/g,"\\'")}','${eff}')" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </td>
     </tr>`;
@@ -1826,16 +1862,32 @@ function renderLoans(){
     <tbody>${rows}</tbody></table>`;
 }
 
+function updateLoanBalancePreview(){
+  const orig=parseFloat(document.getElementById('l-original-balance').value);
+  const start=document.getElementById('l-start-date').value;
+  const monthly=parseFloat(document.getElementById('l-monthly').value)||0;
+  const preview=document.getElementById('l-balance-preview');
+  if(orig>0 && start){
+    const months=loanMonthsElapsed(start);
+    const computed=Math.max(0,orig-months*monthly);
+    preview.textContent=`Current balance: ${fmtUSD(computed)} (${months} month${months!==1?'s':''} × ${fmtUSD(monthly)}/mo elapsed)`;
+    preview.classList.remove('hidden');
+  } else {
+    preview.classList.add('hidden');
+  }
+}
 function openLoanModal(){
   S.editLoanId=null;
   document.getElementById('loanModalTitle').textContent='Add Loan';
   document.getElementById('l-submit').textContent='Save Loan';
   ['l-id','l-name','l-notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('l-balance').value='';
+  document.getElementById('l-original-balance').value='';
+  document.getElementById('l-start-date').value='';
   document.getElementById('l-monthly').value='';
   document.getElementById('l-rate').value='';
   document.getElementById('l-type').value='mortgage';
   document.getElementById('l-err').classList.add('hidden');
+  document.getElementById('l-balance-preview').classList.add('hidden');
   document.getElementById('loanModal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('l-name').focus(),60);
 }
@@ -1844,36 +1896,40 @@ function editLoan(id){
   S.editLoanId=id;
   document.getElementById('loanModalTitle').textContent='Edit Loan';
   document.getElementById('l-submit').textContent='Save Changes';
-  document.getElementById('l-id').value      = id;
-  document.getElementById('l-name').value    = l.name;
-  document.getElementById('l-type').value    = l.type;
-  document.getElementById('l-balance').value = l.balance;
-  document.getElementById('l-monthly').value = l.monthly_payment;
-  document.getElementById('l-rate').value    = l.interest_rate||'';
-  document.getElementById('l-notes').value   = l.notes||'';
+  document.getElementById('l-id').value                = id;
+  document.getElementById('l-name').value              = l.name;
+  document.getElementById('l-type').value              = l.type;
+  document.getElementById('l-original-balance').value  = l.original_balance ?? l.balance ?? '';
+  document.getElementById('l-start-date').value        = l.start_date||'';
+  document.getElementById('l-monthly').value           = l.monthly_payment;
+  document.getElementById('l-rate').value              = l.interest_rate||'';
+  document.getElementById('l-notes').value             = l.notes||'';
   document.getElementById('l-err').classList.add('hidden');
+  updateLoanBalancePreview();
   document.getElementById('loanModal').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('l-balance').focus(),60);
+  setTimeout(()=>document.getElementById('l-original-balance').focus(),60);
 }
 function closeLoanModal(){ document.getElementById('loanModal').classList.add('hidden'); S.editLoanId=null; }
 async function submitLoan(){
-  const name    = document.getElementById('l-name').value.trim();
-  const type    = document.getElementById('l-type').value;
-  const balance = parseFloat(document.getElementById('l-balance').value);
-  const monthly = parseFloat(document.getElementById('l-monthly').value);
-  const rateVal = document.getElementById('l-rate').value.trim();
-  const rate    = rateVal ? parseFloat(rateVal) : 0;
-  const notes   = document.getElementById('l-notes').value.trim();
-  const btn     = document.getElementById('l-submit');
+  const name       = document.getElementById('l-name').value.trim();
+  const type       = document.getElementById('l-type').value;
+  const origBal    = parseFloat(document.getElementById('l-original-balance').value);
+  const startDate  = document.getElementById('l-start-date').value.trim();
+  const monthly    = parseFloat(document.getElementById('l-monthly').value);
+  const rateVal    = document.getElementById('l-rate').value.trim();
+  const rate       = rateVal ? parseFloat(rateVal) : 0;
+  const notes      = document.getElementById('l-notes').value.trim();
+  const btn        = document.getElementById('l-submit');
   document.getElementById('l-err').classList.add('hidden');
   if(!name){ showLoanErr('Name is required'); return; }
-  if(isNaN(balance)||balance<0){ showLoanErr('Enter a valid balance'); return; }
+  if(isNaN(origBal)||origBal<0){ showLoanErr('Enter a valid original amount'); return; }
   if(isNaN(monthly)||monthly<0){ showLoanErr('Enter a valid monthly payment'); return; }
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Saving…';
   try{
+    const payload={name,type,original_balance:origBal,balance:origBal,start_date:startDate,monthly_payment:monthly,interest_rate:rate,notes};
     let d;
-    if(S.editLoanId) d=await api.put(`/api/loans/${S.editLoanId}`,{name,type,balance,monthly_payment:monthly,interest_rate:rate,notes});
-    else             d=await api.post('/api/loans',{name,type,balance,monthly_payment:monthly,interest_rate:rate,notes});
+    if(S.editLoanId) d=await api.put(`/api/loans/${S.editLoanId}`,payload);
+    else             d=await api.post('/api/loans',payload);
     if(d.error){ showLoanErr(d.error); return; }
     closeLoanModal();
     await loadLoans();
