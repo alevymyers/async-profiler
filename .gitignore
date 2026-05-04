@@ -11,3 +11,5 @@ data/imports/
 __pycache__/
 *.pyc
 .venv/
+# transaction CSV exports (Schwab, Kraken) — may contain real financial data
+*.csv
