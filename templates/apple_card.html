@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transactions — Portfolio Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent:        #22d3ee;
+    --accent-dim:    rgba(34,211,238,.1);
+    --accent-border: rgba(34,211,238,.2);
+    --pos:   #4ade80;
+    --neg:   #f87171;
+    --warn:  #fbbf24;
+    --bg:    #050709;
+    --surface:       rgba(255,255,255,.022);
+    --surface-hover: rgba(255,255,255,.04);
+    --border:        rgba(255,255,255,.058);
+    --border-hi:     rgba(255,255,255,.1);
+    --text-1: #edf2f7;
+    --text-2: #7a8fa8;
+    --text-3: #374557;
+    --r-card: 13px;
+    --r-btn:  7px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text-1);
+    min-height: 100vh;
+    font-feature-settings: 'cv02','cv03','cv04','cv11';
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(ellipse 70% 40% at 50% -5%, rgba(34,211,238,.055) 0%, transparent 65%),
+      linear-gradient(rgba(34,211,238,.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,211,238,.02) 1px, transparent 1px);
+    background-size: 100% 100%, 52px 52px, 52px 52px;
+  }
+  .content { position: relative; z-index: 1; }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex; align-items: center; gap: 16px; padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5,7,9,.94); backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .back-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-btn); color: var(--text-2);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    padding: 6px 12px; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: background .15s, color .15s;
+  }
+  .back-btn:hover { background: var(--surface-hover); color: var(--text-1); }
+  .page-title { font-size: 14px; font-weight: 600; letter-spacing: .01em; }
+
+  /* ── Page tabs (Credit Card / Bank) ── */
+  .page-tabs {
+    display: flex; background: rgba(255,255,255,.025);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 3px; gap: 1px; margin-left: 8px;
+  }
+  .page-tab {
+    padding: 5px 14px; border-radius: 7px; border: none;
+    background: transparent; color: var(--text-3);
+    font-weight: 500; font-size: 12px; letter-spacing: .02em;
+    cursor: pointer; transition: all .15s;
+    font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  }
+  .page-tab:hover { color: var(--text-2); }
+  .page-tab.active {
+    background: var(--accent-dim); color: var(--accent);
+    border: 1px solid var(--accent-border);
+  }
+
+  .topbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    background: var(--accent-dim); color: var(--accent);
+    border: 1px solid var(--accent-border); border-radius: var(--r-btn);
+    padding: 7px 14px; font-weight: 600; font-size: 12px; letter-spacing: .025em;
+    cursor: pointer; transition: background .15s, box-shadow .15s;
+    display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-primary:hover { background: rgba(34,211,238,.18); box-shadow: 0 0 18px rgba(34,211,238,.14); }
+  .btn-ghost {
+    background: var(--surface); color: var(--text-2);
+    border: 1px solid var(--border); border-radius: var(--r-btn);
+    padding: 7px 14px; font-weight: 500; font-size: 12px;
+    cursor: pointer; transition: background .15s, color .15s;
+    display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-ghost:hover { background: var(--surface-hover); color: var(--text-1); }
+  .btn-danger {
+    background: rgba(248,113,113,.08); color: var(--neg);
+    border: 1px solid rgba(248,113,113,.2); border-radius: var(--r-btn);
+    padding: 7px 14px; font-weight: 500; font-size: 12px;
+    cursor: pointer; transition: background .15s;
+    display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-danger:hover { background: rgba(248,113,113,.14); }
+
+  /* ── Layout ── */
+  .page { padding: 20px 24px 48px; max-width: 1200px; margin: 0 auto; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── Filter bar ── */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .filter-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-right: 2px; }
+  .filter-pill {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    color: var(--text-2); cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .filter-pill:hover { color: var(--text-1); border-color: var(--border-hi); }
+  .filter-pill.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+  .cat-pill {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 12px;
+    font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500;
+    color: var(--text-2); cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .cat-pill:hover { color: var(--text-1); border-color: var(--border-hi); }
+  .cat-pill.active { color: var(--text-1); border-color: var(--border-hi); background: var(--surface-hover); }
+  .cdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Stat chips ── */
+  .stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat-chip { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 18px; flex: 1; min-width: 130px; }
+  .stat-lbl { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 6px; }
+  .stat-val { font-size: 22px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text-1); letter-spacing: -.5px; }
+  .stat-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+
+  /* ── Chart cards ── */
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 18px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 14px; }
+  .bar-hint { font-size: 11px; color: var(--text-3); margin-top: 6px; }
+
+  /* ── Two column ── */
+  .two-col { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-bottom: 16px; }
+
+  /* ── Category list ── */
+  .cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
+  .card-hdr { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .cat-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    border-top: 1px solid var(--border); cursor: pointer; transition: background .1s;
+  }
+  .cat-row:first-of-type { border-top: none; }
+  .cat-row:hover, .cat-row.selected { background: var(--surface-hover); }
+  .cat-name { flex: 1; font-size: 12px; color: var(--text-1); }
+  .cat-bar-bg { width: 70px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .cat-bar-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+  .cat-amt { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text-2); min-width: 65px; text-align: right; }
+
+  /* ── Donut ── */
+  .donut-wrap { display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .donut-inner { position: relative; width: 200px; height: 200px; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .donut-total { font-size: 17px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text-1); }
+  .donut-lbl { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+
+  /* ── Transaction list ── */
+  .tx-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
+  .tx-hdr { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .tx-date-row {
+    padding: 7px 16px 3px; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    color: var(--text-3); text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tx-date-sum { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-3); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .tx-row { display: flex; align-items: center; padding: 8px 16px; gap: 12px; border-top: 1px solid var(--border); transition: background .1s; }
+  .tx-row:hover { background: var(--surface-hover); }
+  .tx-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .tx-info { flex: 1; min-width: 0; }
+  .tx-merchant { font-size: 13px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .tx-amt { font-size: 13px; font-weight: 500; font-family: 'DM Mono', monospace; flex-shrink: 0; }
+  .tx-amt.credit { color: var(--pos); }
+  .tx-amt.debit  { color: var(--text-2); }
+
+  /* ── Frequent payees ── */
+  .freq-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  .freq-chip { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px 5px 8px; cursor: pointer; transition: background .15s, border-color .15s; font-size: 12px; }
+  .freq-chip:hover { background: var(--surface-hover); border-color: var(--border-hi); }
+  .freq-chip.active { background: rgba(34,211,238,.1); border-color: var(--accent-border); color: var(--accent); }
+  .freq-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .freq-chip-name { color: var(--text-1); font-weight: 500; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .freq-chip-count { background: rgba(255,255,255,.08); border-radius: 9px; padding: 1px 6px; font-size: 10px; font-weight: 600; color: var(--text-2); }
+  .freq-chip-amt { font-size: 11px; color: var(--text-3); font-family: 'DM Mono', monospace; }
+
+  /* ── Import zone ── */
+  .import-zone {
+    border: 1px dashed var(--border); border-radius: var(--r-card);
+    padding: 64px 24px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .import-zone.drag-over { border-color: var(--accent-border); background: var(--accent-dim); }
+  .import-zone-title { font-size: 15px; font-weight: 600; color: var(--text-1); margin-bottom: 6px; }
+  .import-zone-sub { font-size: 12px; color: var(--text-3); margin-bottom: 18px; }
+
+  /* ── Imports panel ── */
+  .imports-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; margin-bottom: 16px; }
+  .imports-panel-hdr { display: flex; align-items: center; gap: 8px; padding: 10px 16px; cursor: pointer; user-select: none; transition: background .1s; }
+  .imports-panel-hdr:hover { background: var(--surface-hover); }
+  .imports-panel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); flex: 1; }
+  .imports-count-badge { background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--text-2); font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 9px; }
+  .imports-chevron { font-size: 10px; color: var(--text-3); transition: transform .2s; }
+  .import-file-row { display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-top: 1px solid var(--border); transition: background .1s; }
+  .import-file-row:hover { background: var(--surface-hover); }
+  .import-file-icon { color: var(--text-3); flex-shrink: 0; }
+  .import-file-info { flex: 1; min-width: 0; }
+  .import-file-name { font-size: 12px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .import-file-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .import-source-badge { font-size: 10px; font-weight: 600; letter-spacing: .04em; padding: 2px 8px; border-radius: 9px; flex-shrink: 0; }
+  .import-source-badge.apple    { background: rgba(251,191,36,.1);  color: #fbbf24;      border: 1px solid rgba(251,191,36,.2); }
+  .import-source-badge.fidelity { background: rgba(34,211,238,.1);  color: var(--accent); border: 1px solid var(--accent-border); }
+  .import-source-badge.chase    { background: rgba(167,139,250,.1); color: #a78bfa;      border: 1px solid rgba(167,139,250,.2); }
+  .import-source-badge.bank     { background: rgba(74,222,128,.1);  color: var(--pos);   border: 1px solid rgba(74,222,128,.2); }
+  .import-delete-btn { background: none; border: none; color: var(--text-3); font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: color .1s, background .1s; line-height: 1; }
+  .import-delete-btn:hover { color: #f87171; background: rgba(248,113,113,.1); }
+
+  /* ── Card/Account tabs ── */
+  .card-tab-bar { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 0 4px; }
+  .card-tab { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+  .card-tab:hover { background: var(--surface-hover); color: var(--text-1); }
+  .card-tab.active { background: rgba(34,211,238,.1); color: var(--accent); border-color: var(--accent-border); }
+
+  /* ── Import name modal ── */
+  .import-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 200; }
+  .import-modal { background: #0d1117; border: 1px solid var(--border-hi); border-radius: 16px; padding: 28px; width: 380px; max-width: calc(100vw - 32px); }
+  .import-modal-title { font-size: 15px; font-weight: 600; color: var(--text-1); margin-bottom: 18px; }
+  .import-modal-row { margin-bottom: 14px; }
+  .import-modal-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); margin-bottom: 6px; }
+  .import-modal-file-name { font-size: 12px; color: var(--text-2); font-family: 'DM Mono', monospace; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; word-break: break-all; }
+  .import-modal-input { width: 100%; background: var(--surface); border: 1px solid var(--border-hi); border-radius: 7px; padding: 9px 12px; color: var(--text-1); font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s; }
+  .import-modal-input:focus { border-color: var(--accent-border); }
+  .import-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: rgba(5,7,9,.96); border: 1px solid var(--border);
+    color: var(--text-1); padding: 9px 18px; border-radius: 20px;
+    font-size: 13px; font-weight: 500; backdrop-filter: blur(20px);
+    transition: transform .25s cubic-bezier(0.34,1.56,0.64,1), opacity .25s;
+    opacity: 0; pointer-events: none; white-space: nowrap; z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ── Recurring payments card ── */
+  .recur-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; margin-bottom: 16px; }
+  .recur-hdr { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background .1s; }
+  .recur-hdr:hover { background: var(--surface-hover); }
+  .recur-hdr-left { display: flex; align-items: center; gap: 10px; }
+  .recur-badge {
+    background: rgba(34,211,238,.12); border: 1px solid rgba(34,211,238,.2);
+    color: var(--accent); font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 10px; letter-spacing: .04em;
+  }
+  .recur-row { display: flex; align-items: center; padding: 9px 16px; gap: 12px; border-top: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  .recur-row:hover { background: var(--surface-hover); }
+  .recur-info { flex: 1; min-width: 0; }
+  .recur-name { font-size: 13px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recur-sub  { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .recur-amt  { font-size: 14px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text-1); flex-shrink: 0; }
+  .recur-freq { font-size: 10px; font-weight: 600; letter-spacing: .04em; padding: 2px 7px; border-radius: 8px; flex-shrink: 0; }
+  .recur-freq.monthly  { background: rgba(74,222,128,.1);  color: var(--pos); }
+  .recur-freq.biweekly { background: rgba(34,211,238,.1);  color: var(--accent); }
+  .recur-freq.weekly   { background: rgba(251,191,36,.1);  color: var(--warn); }
+  .recur-freq.annual   { background: rgba(167,139,250,.1); color: #a78bfa; }
+  .recur-freq.irregular{ background: rgba(255,255,255,.04); color: var(--text-3); }
+  .tol-btns { display: flex; gap: 2px; }
+  .tol-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 5px; padding: 3px 8px;
+    font-size: 10px; font-weight: 600; color: var(--text-3);
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s;
+  }
+  .tol-btn:hover { color: var(--text-2); }
+  .tol-btn.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+  .recur-amt-range { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+
+  /* ── Search + sort bar ── */
+  .tx-search-bar {
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tx-search {
+    flex: 1; background: rgba(255,255,255,.04); border: 1px solid var(--border);
+    border-radius: var(--r-btn); color: var(--text-1);
+    padding: 6px 10px; font-size: 12px; font-family: 'DM Sans', sans-serif;
+    outline: none; transition: border-color .15s; min-width: 0;
+  }
+  .tx-search:focus { border-color: var(--accent-border); box-shadow: 0 0 0 2px rgba(34,211,238,.06); }
+  .tx-search::placeholder { color: var(--text-3); }
+  .sort-btns { display: flex; gap: 2px; flex-shrink: 0; }
+  .sort-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 5px; padding: 4px 9px;
+    font-size: 10px; font-weight: 600; color: var(--text-3);
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all .15s; white-space: nowrap;
+  }
+  .sort-btn:hover { color: var(--text-2); }
+  .sort-btn.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+
+  /* ── View toggle (By Date / By Merchant) ── */
+  .view-toggle { display: flex; gap: 3px; }
+  .view-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px;
+    font-size: 11px; font-weight: 500; color: var(--text-3);
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .view-btn:hover { color: var(--text-2); border-color: var(--border-hi); }
+  .view-btn.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+
+  /* ── Merchant group rows ── */
+  .merch-row {
+    display: flex; align-items: center; padding: 9px 16px; gap: 12px;
+    border-top: 1px solid var(--border); cursor: pointer; transition: background .1s;
+  }
+  .merch-row:hover { background: var(--surface-hover); }
+  .merch-info { flex: 1; min-width: 0; }
+  .merch-name { font-size: 13px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .merch-sub  { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .merch-total { font-size: 13px; font-weight: 500; font-family: 'DM Mono', monospace; color: var(--text-2); flex-shrink: 0; }
+  .merch-chevron {
+    color: var(--text-3); font-size: 10px; flex-shrink: 0;
+    transition: transform .2s; line-height: 1;
+  }
+  .merch-chevron.open { transform: rotate(90deg); }
+  .merch-children { display: none; }
+  .merch-children.open { display: block; }
+  .merch-child {
+    display: flex; align-items: center; padding: 7px 16px 7px 36px; gap: 10px;
+    border-top: 1px solid var(--border); transition: background .1s;
+  }
+  .merch-child:hover { background: var(--surface-hover); }
+  .merch-child-date { font-size: 11px; color: var(--text-3); flex-shrink: 0; min-width: 90px; }
+  .merch-child-desc { font-size: 12px; color: var(--text-2); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .merch-child-amt  { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text-2); flex-shrink: 0; }
+  .merch-child-amt.credit { color: var(--pos); }
+
+  .scrollable { overflow-y: auto; max-height: 440px; }
+
+  .dow-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; padding:4px 0 8px; }
+  .dow-cell { border-radius:8px; padding:10px 6px 8px; text-align:center; }
+  .dow-cell-day { font-size:10px; color:var(--text-3); letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; }
+  .dow-cell-amt { font-size:12px; font-family:'DM Mono',monospace; font-weight:600; color:var(--text-1); }
+  .comp-pill { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 14px; }
+  .comp-pill-lbl { font-size:10px; color:var(--text-3); letter-spacing:.04em; text-transform:uppercase; margin-bottom:2px; }
+  .comp-pill-val { font-size:14px; font-weight:600; font-family:'DM Mono',monospace; }
+  .delta-up { color:#f87171; }
+  .delta-dn { color:#34d399; }
+  .delta-flat { color:var(--text-3); }
+
+  @media (max-width: 780px) {
+    .two-col { grid-template-columns: 1fr; }
+    .page { padding: 16px 16px 48px; }
+  }
+</style>
+</head>
+<body>
+<div class="content">
+
+<!-- Topbar -->
+<div class="topbar">
+  <a href="/" class="back-btn">← Portfolio</a>
+  <div class="page-title">Transactions</div>
+  <div class="page-tabs">
+    <button class="page-tab active" id="ptab-cc"   onclick="switchTab('cc')">Credit Card</button>
+    <button class="page-tab"        id="ptab-bank" onclick="switchTab('bank')">Bank</button>
+  </div>
+  <div class="topbar-right" id="topbarRight">
+    <!-- filled by switchTab() -->
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Import name modal -->
+  <div class="import-modal-overlay" id="import-modal" style="display:none" onclick="if(event.target===this)closeImportModal()">
+    <div class="import-modal">
+      <div class="import-modal-title" id="import-modal-title">Import CSV</div>
+      <div class="import-modal-row">
+        <div class="import-modal-label">File</div>
+        <div class="import-modal-file-name" id="import-modal-file"></div>
+      </div>
+      <div class="import-modal-row">
+        <div class="import-modal-label" id="import-modal-label">Card name</div>
+        <input class="import-modal-input" id="import-modal-name" placeholder="e.g. Apple Card" onkeydown="if(event.key==='Enter')confirmImport()">
+      </div>
+      <div class="import-modal-actions">
+        <button class="btn-ghost" onclick="closeImportModal()">Cancel</button>
+        <button class="btn-primary" onclick="confirmImport()">Import →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CREDIT CARD TAB ════════════════════════════════════════════ -->
+  <div class="tab-pane active" id="pane-cc">
+
+    <div id="cc-imports-panel"></div>
+
+    <div class="import-zone" id="cc-importZone" style="display:none">
+      <div class="import-zone-title">No transactions imported</div>
+      <div class="import-zone-sub">Drop your Apple Card CSV, or choose a file</div>
+      <button class="btn-primary" onclick="document.getElementById('cc-fileInput').click()">Choose File</button>
+    </div>
+    <input type="file" id="cc-fileInput" accept=".csv" style="display:none">
+
+    <div id="cc-dashboard" style="display:none">
+      <div id="cc-card-tabs"></div>
+      <div class="filter-bar" id="cc-rangeFilter"></div>
+      <div class="filter-bar" id="cc-catFilter"></div>
+      <div class="stat-row">
+        <div class="stat-chip"><div class="stat-lbl">Total Spent</div><div class="stat-val" id="cc-statTotal">$0</div><div class="stat-sub" id="cc-statSub"></div></div>
+        <div class="stat-chip"><div class="stat-lbl">Avg / Month</div><div class="stat-val" id="cc-statAvg">$0</div><div class="stat-sub" id="cc-statAvgSub"></div></div>
+        <div class="stat-chip"><div class="stat-lbl">Transactions</div><div class="stat-val" id="cc-statCount">0</div><div class="stat-sub" id="cc-statCountSub"></div></div>
+        <div class="stat-chip"><div class="stat-lbl">Avg Transaction</div><div class="stat-val" id="cc-statAvgTx">$0</div><div class="stat-sub"></div></div>
+      </div>
+      <div id="cc-compRow" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+      <div class="recur-card" id="cc-recurCard" style="display:none">
+        <div class="recur-hdr">
+          <div class="recur-hdr-left" onclick="toggleRecur('cc')" style="flex:1;cursor:pointer">
+            <div class="card-title" style="margin:0">Recurring Payments</div>
+            <span class="recur-badge" id="cc-recurBadge"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <span style="font-size:10px;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase;font-weight:600">Variance</span>
+            <div class="tol-btns" id="cc-tolBtns"></div>
+          </div>
+          <div class="merch-chevron open" id="cc-recurChevron" onclick="toggleRecur('cc')" style="cursor:pointer;padding-left:8px">▶</div>
+        </div>
+        <div id="cc-recurBody"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Monthly Spending</div>
+        <canvas id="cc-barChart" height="90"></canvas>
+        <div class="bar-hint">Click any bar to jump to that month's transactions</div>
+      </div>
+      <div class="chart-card" id="cc-velocityCard">
+        <div class="card-title">30-Day Spend Velocity</div>
+        <canvas id="cc-velocityChart" height="80"></canvas>
+      </div>
+      <div class="chart-card" id="cc-dowCard">
+        <div class="card-title">Spending by Day of Week</div>
+        <div class="dow-grid" id="cc-dowGrid"></div>
+      </div>
+      <div class="two-col">
+        <div class="cat-card">
+          <div class="card-hdr"><div class="card-title" style="margin:0" id="cc-catListTitle">By Category</div></div>
+          <div class="scrollable" id="cc-catList"></div>
+        </div>
+        <div class="cat-card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">Breakdown</div></div>
+          <div class="donut-wrap">
+            <div class="donut-inner">
+              <canvas id="cc-donut"></canvas>
+              <div class="donut-center"><div class="donut-total" id="cc-donutTotal">$0</div><div class="donut-lbl">total</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="cc-frequent-wrap"></div>
+      <div class="tx-card" id="cc-txCard">
+        <div class="tx-hdr">
+          <div class="card-title" style="margin:0">Transactions</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:11px;color:var(--text-3)" id="cc-txCount"></div>
+            <div class="view-toggle">
+              <button class="view-btn active" id="cc-vbDate"     onclick="ccSetView('date')">By Date</button>
+              <button class="view-btn"        id="cc-vbMerchant" onclick="ccSetView('merchant')">By Merchant</button>
+            </div>
+          </div>
+        </div>
+        <div class="tx-search-bar">
+          <input class="tx-search" id="cc-search" placeholder="Search transactions…" oninput="ccSearch=this.value;ccRenderTx()">
+          <div class="sort-btns" id="cc-sortBtns"></div>
+        </div>
+        <div class="scrollable" id="cc-txList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BANK TAB ═══════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="pane-bank">
+
+    <div id="bk-imports-panel"></div>
+
+    <div class="import-zone" id="bk-importZone" style="display:none">
+      <div class="import-zone-title">No bank transactions imported</div>
+      <div class="import-zone-sub">Drop your bank CSV, or choose a file. Credit card payments are excluded automatically.</div>
+      <button class="btn-primary" onclick="document.getElementById('bk-fileInput').click()">Choose File</button>
+    </div>
+    <input type="file" id="bk-fileInput" accept=".csv" style="display:none">
+
+    <div id="bk-dashboard" style="display:none">
+      <div class="filter-bar" id="bk-acctFilter"></div>
+      <div class="filter-bar" id="bk-rangeFilter"></div>
+      <div class="filter-bar" id="bk-typeFilter"></div>
+      <div class="filter-bar" id="bk-catFilter"></div>
+      <div class="stat-row">
+        <div class="stat-chip" style="cursor:pointer" onclick="bkType=bkType==='Credit'?'__all__':'Credit';bkRender()"><div class="stat-lbl">Deposits</div><div class="stat-val" id="bk-statIn">$0</div><div class="stat-sub" id="bk-statInSub"></div></div>
+        <div class="stat-chip" style="cursor:pointer" onclick="bkType=bkType==='Debit'?'__all__':'Debit';bkRender()"><div class="stat-lbl">Withdrawals</div><div class="stat-val" id="bk-statOut">$0</div><div class="stat-sub" id="bk-statOutSub"></div></div>
+        <div class="stat-chip"><div class="stat-lbl">Net</div><div class="stat-val" id="bk-statNet">$0</div><div class="stat-sub"></div></div>
+        <div class="stat-chip"><div class="stat-lbl">Transactions</div><div class="stat-val" id="bk-statCount">0</div><div class="stat-sub"></div></div>
+      </div>
+      <div class="recur-card" id="bk-recurCard" style="display:none">
+        <div class="recur-hdr">
+          <div class="recur-hdr-left" onclick="toggleRecur('bk')" style="flex:1;cursor:pointer">
+            <div class="card-title" style="margin:0">Recurring Payments</div>
+            <span class="recur-badge" id="bk-recurBadge"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <span style="font-size:10px;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase;font-weight:600">Variance</span>
+            <div class="tol-btns" id="bk-tolBtns"></div>
+          </div>
+          <div class="merch-chevron open" id="bk-recurChevron" onclick="toggleRecur('bk')" style="cursor:pointer;padding-left:8px">▶</div>
+        </div>
+        <div id="bk-recurBody"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">Monthly Activity</div>
+        <canvas id="bk-barChart" height="90"></canvas>
+        <div class="bar-hint">Click any bar to jump to that month's transactions</div>
+      </div>
+      <div class="two-col">
+        <div class="cat-card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">Spending by Category</div></div>
+          <div class="scrollable" id="bk-catList"></div>
+        </div>
+        <div class="cat-card">
+          <div class="card-hdr"><div class="card-title" style="margin:0">Breakdown</div></div>
+          <div class="donut-wrap">
+            <div class="donut-inner">
+              <canvas id="bk-donut"></canvas>
+              <div class="donut-center"><div class="donut-total" id="bk-donutTotal">$0</div><div class="donut-lbl">debits</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="bk-frequent-wrap"></div>
+
+      <div class="tx-card" id="bk-txCard">
+        <div class="tx-hdr">
+          <div class="card-title" style="margin:0">Transactions</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:11px;color:var(--text-3)" id="bk-txCount"></div>
+            <div class="view-toggle">
+              <button class="view-btn active" id="bk-vbDate"   onclick="bkSetView('date')">By Date</button>
+              <button class="view-btn"        id="bk-vbPayee"  onclick="bkSetView('payee')">By Payee</button>
+            </div>
+          </div>
+        </div>
+        <div class="tx-search-bar">
+          <input class="tx-search" id="bk-search" placeholder="Search transactions…" oninput="bkSearch=this.value;bkRenderTx()">
+          <div class="sort-btns" id="bk-sortBtns"></div>
+        </div>
+        <div class="scrollable" id="bk-txList"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+</div><!-- /content -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Category colors ───────────────────────────────────────────
+const CATS = {
+  "Food & Drink":"#f59e0b","Restaurants":"#f59e0b","Shopping":"#22d3ee",
+  "Transportation":"#fbbf24","Entertainment":"#a78bfa","Health":"#f87171",
+  "Travel":"#34d399","Services":"#4ade80","Groceries":"#86efac",
+  "Gas":"#fb923c","Bills & Utilities":"#7a8fa8","Education":"#818cf8",
+  "Hotels":"#c084fc","Car Rental":"#38bdf8","Airlines":"#7dd3fc",
+  "Amazon":"#f97316","Apple":"#6ee7f7",
+  "Rent":"#fb7185","Transfers":"#2dd4bf","Insurance":"#94a3b8",
+  "Subscriptions":"#e879f9","Interest":"#475569",
+  "Other":"#374557",
+};
+
+// Merchant keyword whitelists — checked case-insensitively against merchant name
+// Order matters: first match wins, so put more specific categories first
+// Keywords are plain substrings — matching is m.includes(keyword) after both sides
+// are lowercased. Equivalent to case-insensitive grep. No regex, no wildcards —
+// do NOT use * or + in keywords; they are treated as literal characters.
+// Order matters: first match wins.
+const MERCHANT_CATS = {
+  // ── Amazon ─────────────────────────────────────────────────────
+  "Amazon": [
+    "amazon","amzn","whole foods","wholefds",
+  ],
+  // ── Apple ──────────────────────────────────────────────────────
+  // "apple" alone is broad — catches APPLE INC, APPLE SERVICES, etc.
+  // Listed before food so we can add applebee to food if needed.
+  "Apple": [
+    "apple","itunes",
+  ],
+  // ── Interest / dividends ───────────────────────────────────────
+  "Interest": [
+    "interest payment","interest earned","interest credit","savings interest",
+    "dividend","interest income","hysa interest","apy credit",
+  ],
+  // ── Transfers / P2P ────────────────────────────────────────────
+  "Transfers": [
+    "venmo","zelle","cash app","cashapp","paypal","square cash",
+    "chime","google pay","samsung pay","meta pay",
+    "wire transfer","ach transfer","external transfer","online transfer",
+  ],
+  // ── Rent / Housing ─────────────────────────────────────────────
+  "Rent": [
+    "rent payment","monthly rent","lease payment","property management",
+    "greystar","avalon bay","camden property","essex property",
+    "equity residential","post apartment","lincoln property","aimco",
+    "entrata","appfolio","yardi",
+  ],
+  // ── Insurance ──────────────────────────────────────────────────
+  "Insurance": [
+    "geico","state farm","allstate","progressive","liberty mutual",
+    "nationwide","usaa","travelers","aetna","cigna","anthem",
+    "united health","blue cross","blue shield","humana","kaiser",
+    "metlife","new york life","prudential","transamerica",
+  ],
+  // ── Subscriptions ──────────────────────────────────────────────
+  "Subscriptions": [
+    "netflix","spotify","hulu","disney","hbo","peacock","paramount",
+    "youtube premium","sling tv","fubo",
+    "adobe","microsoft 365","office 365","dropbox","github",
+    "planet fitness","24 hour fitness","equinox","anytime fitness",
+    "nytimes","new york times","wall street journal","the athletic",
+    "duolingo","headspace",
+  ],
+  // ── Bills & Utilities ──────────────────────────────────────────
+  "Bills & Utilities": [
+    "pg&e","pge","pacific gas","con ed","coned","national grid",
+    "duke energy","dominion energy","southern california edison","sce",
+    "georgia power","xcel energy","centerpoint","consumers energy",
+    "utility","util paymt","util payment","electric bill","water bill",
+    "city of austin","city of dallas","city of houston","city of san antonio",
+    "city of new york","city of chicago","city of los angeles","city of seattle",
+    "waste management","republic services",
+    // Carriers — short forms banks actually print
+    "verizon","vzw","vzwrlss",
+    "at&t","att","tmobile","t-mobile","sprint",
+    "comcast","xfinity","spectrum","cox comm","cox cable",
+    "dish network","directv","frontier comm","optimum","suddenlink",
+  ],
+  // ── Health / Pharmacy ──────────────────────────────────────────
+  "Health": [
+    "walgreens","cvs pharmacy","cvs/pharmacy","rite aid","duane reade",
+    "boots pharmacy","minute clinic","urgent care","concentra",
+  ],
+  // ── Transportation (auto service) ──────────────────────────────
+  "Transportation": [
+    "goodyear","discount tire","firestone auto","jiffy lube","midas","pep boys",
+    "autozone","o'reilly auto","advance auto","take 5 oil",
+  ],
+  // ── Entertainment ──────────────────────────────────────────────
+  "Entertainment": [
+    "steam","steam games","xbox","playstation","nintendo","twitch",
+    "fandango","amc theatre","regal cinema","cinemark","alamo drafthouse",
+    "ticketmaster","stubhub","seat geek","eventbrite",
+    "bowling","topgolf","dave & buster",
+  ],
+  // ── Shopping (general retail) ───────────────────────────────────
+  "Shopping": [
+    "rei","ikea","j.crew","jcrew","gap ","old navy","h&m","zara",
+    "nordstrom","bloomingdale","macy","tj maxx","t.j. maxx","marshalls","ross dress",
+    "bed bath","home depot","lowe's","lowes","dji","best buy","b&h photo",
+    "michael kors","coach","kate spade","lululemon","patagonia","columbia sport",
+    "west elm","crate and barrel","pottery barn","restoration hardware","wayfair",
+    "chewy","petco","petsmart",
+  ],
+  // ── Subscriptions (additional) ─────────────────────────────────
+  "Subscriptions": [
+    "intuit","turbotax","quickbooks",
+  ],
+  // ── Travel (camping / outdoors booking) ────────────────────────
+  "Travel": [
+    "hipcamp","getaway","koa ","under canvas","campspot",
+  ],
+  // ── Groceries ──────────────────────────────────────────────────
+  "Groceries": [
+    "safeway","kroger","publix","albertsons","trader joe","wegmans",
+    "harris teeter","stop & shop","food lion","hy-vee","applebee",
+    "market basket","meijer","sprouts","natural grocers",
+    "walmart","wal-mart","target","costco","sam's club",
+  ],
+  // ── Gas ────────────────────────────────────────────────────────
+  "Gas": [
+    "shell","chevron","exxon","mobil","bp ","sunoco","speedway",
+    "marathon petro","casey","circle k","wawa","sheetz",
+    "kwik trip","pilot flying","love's travel","racetrac","arco","valero",
+    "one gas","atmos energy","centerpoint energy","texas gas","southwest gas",
+    "nicor gas","peoples gas","laclede gas","piedmont natural",
+  ],
+  // ── Hotels ─────────────────────────────────────────────────────
+  "Hotels": [
+    "marriott","sheraton","westin","w hotel","st regis","le meridien","aloft",
+    "courtyard","residence inn","springhill","fairfield inn","moxy",
+    "hilton","doubletree","embassy suites","hampton inn","homewood suites","home2 suites",
+    "waldorf","intercontinental","crowne plaza","holiday inn","hotel indigo","kimpton",
+    "grand hyatt","park hyatt","andaz","hyatt place","hyatt house","hyatt regency",
+    "wyndham","super 8","days inn","la quinta","ramada","howard johnson",
+    "best western","comfort inn","quality inn","sleep inn","clarion","cambria",
+    "motel 6","red roof","drury","omni hotel","loews hotel",
+    "four seasons","ritz-carlton","ritz carlton","mandarin oriental",
+    "airbnb","air bnb","vrbo","homeaway",
+    " hotel ","hotel ",
+  ],
+  // ── Car Rental ─────────────────────────────────────────────────
+  "Car Rental": [
+    "hertz","avis","budget rent","enterprise rent","national car","alamo rent",
+    "dollar rent","thrifty","sixt","zipcar","turo",
+  ],
+  // ── Airlines ───────────────────────────────────────────────────
+  "Airlines": [
+    "united airlines","ual ","southwest airlines","southwest air","delta air",
+    "american airlines","american 0","jetblue","alaska airlines","alaska ai",
+    "frontier airlines","spirit airlines","allegiant air","sun country","hawaiian airlines",
+    "air canada","british airways","lufthansa","air france","klm","emirates",
+    "qatar airways","singapore air","cathay pacific","ana ","japan airlines",
+    "virgin atlantic","norwegian air","icelandair","aeromexico",
+  ],
+  // ── Travel (booking sites) ──────────────────────────────────────
+  "Travel": [
+    "expedia","hotels.com","booking.com","priceline","kayak","trivago",
+    "travelocity","orbitz","hotwire","tripadvisor","trip.com",
+    "google travel","google flights",
+  ],
+};
+
+// Normalize merchant to a canonical category, overriding the stored one if a whitelist matches
+function resolveCategory(merchant, storedCat) {
+  const m = (merchant || "").toLowerCase();
+  for (const [cat, keywords] of Object.entries(MERCHANT_CATS)) {
+    if (keywords.some(k => m.includes(k))) return cat;
+  }
+  return storedCat || "Other";
+}
+
+// Apply resolveCategory to a transaction array in place
+function applyMerchantCategories(txs) {
+  txs.forEach(t => { t.category = resolveCategory(t.merchant || t.description, t.category); });
+}
+
+// Call bkLogUnmatched() in the browser console to see which bank descriptions
+// landed in "Other" — use the output to add missing keywords.
+window.bkLogUnmatched = function() {
+  const other = bkTx.filter(t => (t.category||"Other") === "Other");
+  const counts = {};
+  other.forEach(t => { const d = (t.description||"").trim(); counts[d] = (counts[d]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  console.table(sorted.map(([desc,count])=>({count, description:desc})));
+  console.log(`${other.length} unmatched transactions, ${sorted.length} unique descriptions`);
+};
+const EXTRA_COLORS = ["#f472b6","#38bdf8","#fb7185","#a3e635","#fde68a","#c4b5fd"];
+const _cc = {};
+let _ei = 0;
+function catColor(c) {
+  if (CATS[c]) return CATS[c];
+  if (!_cc[c]) _cc[c] = EXTRA_COLORS[_ei++ % EXTRA_COLORS.length];
+  return _cc[c];
+}
+// Normalize CC-provider category name variants to canonical CATS keys
+const CC_CAT_NORM = {
+  // Groceries
+  "Grocery":                    "Groceries",
+  // Shopping
+  "Shopping & Clothing":        "Shopping",
+  "Clothing":                   "Shopping",
+  "Home":                       "Shopping",
+  // Hotels
+  "Hotel":                      "Hotels",
+  "Hotels & Motels":            "Hotels",
+  "Lodging":                    "Hotels",
+  // Airlines
+  "Airline":                    "Airlines",
+  "Air Travel":                 "Airlines",
+  // Car Rental
+  "Car-rentals":                "Car Rental",
+  "Car Rentals":                "Car Rental",
+  // Gas
+  "Fuel":                       "Gas",
+  "Gas & Fuel":                 "Gas",
+  "Gasoline":                   "Gas",
+  // Food & Drink
+  "Dining":                     "Food & Drink",
+  "Restaurant":                 "Restaurants",
+  "Coffee & Tea":               "Food & Drink",
+  "Fast Food":                  "Food & Drink",
+  "Bars & Clubs":               "Food & Drink",
+  "Alcohol":                    "Food & Drink",
+  // Health
+  "Medical":                    "Health",
+  "Pharmacy":                   "Health",
+  "Fitness":                    "Health",
+  "Personal Care":              "Health",
+  // Services
+  "Service":                    "Services",
+  "Personal Care & Services":   "Services",
+  "Business Services":          "Services",
+  "Govt-services-parking":      "Services",
+  // Transportation
+  "Auto":                       "Transportation",
+  "Automotive":                 "Transportation",
+  "Auto & Transport":           "Transportation",
+  "Parking":                    "Transportation",
+  "Tolls":                      "Transportation",
+  // Subscriptions
+  "Subscription":               "Subscriptions",
+  "Software":                   "Subscriptions",
+  // Transfers
+  "Transfer":                   "Transfers",
+  "Payment":                    "Transfers",
+  // Utilities / Bills
+  "Utilities":                  "Bills & Utilities",
+  "Phone":                      "Bills & Utilities",
+  "Internet":                   "Bills & Utilities",
+  // Entertainment
+  "Entertainment & Recreation": "Entertainment",
+  "Recreation":                 "Entertainment",
+  "Arts":                       "Entertainment",
+  "Gifts & Donations":          "Entertainment",
+  // Insurance
+  "Healthcare":                 "Insurance",
+  // Apple Card internal entries (Daily Cash adjustments, etc.)
+  "Debit":                      "Other",
+};
+// Only null/empty categories fall into "Other"; known variants are normalized
+function ccEffCat(t) {
+  const c = t.category || "Other";
+  return CC_CAT_NORM[c] ?? c;
+}
+
+// ── Shared ────────────────────────────────────────────────────
+function parseDate(s) {
+  if (!s) return new Date(0);
+  // Handle MM/DD/YY two-digit year
+  if (/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(s)) {
+    const [m, d, y] = s.split("/");
+    return new Date(`20${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`);
+  }
+  return s.includes("/")
+    ? new Date(s.replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2"))
+    : new Date(s);
+}
+function monthKey(tx) {
+  const d = parseDate(tx.tx_date);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function yearOf(tx)  { return parseDate(tx.tx_date).getFullYear(); }
+const fmtUSD      = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Math.abs(n));
+const fmtUSDShort = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(Math.abs(n));
+function fmtMonthShort(k)  { const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("en-US",{month:"short",year:"2-digit"}); }
+function fmtMonthFull(k)   { const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("en-US",{month:"long",year:"numeric"}); }
+function fmtDateHdr(s) { return parseDate(s).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"2-digit"}); }
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+// ── Page tab switching ────────────────────────────────────────
+let currentTab = "cc";
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("pane-cc").classList.toggle("active", tab === "cc");
+  document.getElementById("pane-bank").classList.toggle("active", tab === "bank");
+  document.getElementById("ptab-cc").classList.toggle("active", tab === "cc");
+  document.getElementById("ptab-bank").classList.toggle("active", tab === "bank");
+  updateTopbarButtons();
+}
+
+function updateTopbarButtons() {
+  const r = document.getElementById("topbarRight");
+  if (currentTab === "cc") {
+    const hasCc = ccTx.length > 0;
+    r.innerHTML = `
+      <button class="btn-primary" onclick="document.getElementById('cc-fileInput').click()">+ Import CSV</button>
+      ${hasCc ? '<button class="btn-danger" onclick="ccClearAll()">Clear</button>' : ''}`;
+  } else {
+    const hasBk = bkTx.length > 0;
+    r.innerHTML = `
+      <button class="btn-primary" onclick="document.getElementById('bk-fileInput').click()">+ Import CSV</button>
+      ${hasBk ? '<button class="btn-danger" onclick="bkClearAll()">Clear</button>' : ''}`;
+  }
+}
+
+// ── Import modal ──────────────────────────────────────────────
+let _pendingFile = null, _pendingPrefix = null;
+
+function showImportModal(prefix, file) {
+  _pendingFile = file; _pendingPrefix = prefix;
+  const isCC = prefix === "cc";
+  // Auto-detect default name from filename
+  const fn = file.name.toLowerCase();
+  let defaultName = isCC
+    ? (fn.includes("fidelity") ? "Fidelity" : "Apple Card")
+    : (fn.includes("saving") ? "Savings" : fn.includes("checking") ? "Checking" : "Bank Account");
+  document.getElementById("import-modal-title").textContent = isCC ? "Import Credit Card CSV" : "Import Bank CSV";
+  document.getElementById("import-modal-file").textContent = file.name;
+  document.getElementById("import-modal-label").textContent = isCC ? "Card name" : "Account name";
+  document.getElementById("import-modal-name").value = defaultName;
+  document.getElementById("import-modal").style.display = "flex";
+  setTimeout(() => { const inp = document.getElementById("import-modal-name"); inp.focus(); inp.select(); }, 50);
+}
+function closeImportModal() {
+  document.getElementById("import-modal").style.display = "none";
+  _pendingFile = null; _pendingPrefix = null;
+}
+async function confirmImport() {
+  const name = document.getElementById("import-modal-name").value.trim();
+  const file = _pendingFile, prefix = _pendingPrefix;
+  closeImportModal();
+  if (prefix === "cc") await ccImport(file, name);
+  else await bkImport(file, name);
+}
+
+function fmtImportDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+}
+
+// ── Card/account name helpers ─────────────────────────────────
+function txCardName(t) {
+  if (t.card_name) return t.card_name;
+  if (t.source === "fidelity") return "Fidelity";
+  return "Apple Card";
+}
+function txAcctName(t) {
+  if (t.account_name) return t.account_name;
+  if (t.account) return `···${String(t.account).slice(-4)}`;
+  return "Unknown";
+}
+
+// ══════════════════════════════════════════════════════════════
+// CREDIT CARD
+// ══════════════════════════════════════════════════════════════
+let ccTx = [], ccImports = [];
+let ccRange = "all";
+let ccCat   = "__all__";
+let ccCard  = "__all__";
+let ccBar      = null;
+let ccDonut    = null;
+let ccVelocity = null;
+let _ccImportsOpen = true;
+
+function ccRangeFilter(tx) {
+  const now = new Date(); const d = parseDate(tx.tx_date);
+  if (ccRange === "thisMonth") return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+  if (ccRange === "thisYear")  return d.getFullYear()===now.getFullYear();
+  if (ccRange === "lastYear")  return d.getFullYear()===now.getFullYear()-1;
+  if (/^\d{4}-\d{2}$/.test(ccRange)) return monthKey(tx)===ccRange;
+  if (/^\d{4}$/.test(ccRange)) return d.getFullYear()===+ccRange;
+  return true;
+}
+function ccPurchases(txs) { return txs.filter(t => t.amount > 0); }
+function ccFiltered() {
+  return ccPurchases(ccTx.filter(t =>
+    (ccCard==="__all__" || txCardName(t)===ccCard) &&
+    ccRangeFilter(t) &&
+    (ccCat==="__all__" || ccEffCat(t)===ccCat) &&
+    (ccFreqMerchant===null || (t.merchant||t.description)===ccFreqMerchant)
+  ));
+}
+
+async function ccLoad() {
+  const res = await fetch("/api/apple-card/transactions");
+  const d = await res.json();
+  ccTx = d.transactions || [];
+  // Apply merchant keyword matching for transactions Apple Card left as "Other"
+  ccTx.forEach(t => {
+    if (!t.category || t.category === "Other") {
+      t.category = resolveCategory(t.merchant || t.description, t.category);
+    }
+  });
+  ccImports = d.imports || [];
+  ccRender();
+}
+
+function ccRenderImports() {
+  const el = document.getElementById("cc-imports-panel");
+  if (!ccImports.length) { el.innerHTML = ""; return; }
+  const rows = ccImports.map(imp => `
+    <div class="import-file-row">
+      <svg class="import-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div class="import-file-info">
+        <div class="import-file-name">${imp.filename}</div>
+        <div class="import-file-meta">${imp.card_name||""}${imp.new_transactions!=null?` · ${imp.new_transactions} transactions`:""} · ${fmtImportDate(imp.imported_at)}</div>
+      </div>
+      <span class="import-source-badge ${imp.source||"apple"}">${imp.source==="fidelity"?"Fidelity":imp.source==="chase"?"Chase":"Apple Card"}</span>
+      <button class="import-delete-btn" title="Remove this import" onclick="ccDeleteImport('${imp.id}')">×</button>
+    </div>`).join("");
+  el.innerHTML = `<div class="imports-panel">
+    <div class="imports-panel-hdr" onclick="_ccImportsOpen=!_ccImportsOpen;ccRenderImports()">
+      <span class="imports-panel-title">Imported Files</span>
+      <span class="imports-count-badge">${ccImports.length}</span>
+      <span style="flex:1"></span>
+      <span class="imports-chevron">${_ccImportsOpen?"▾":"▸"}</span>
+    </div>
+    ${_ccImportsOpen ? rows : ""}
+  </div>`;
+}
+
+function ccRenderCardTabs() {
+  const el = document.getElementById("cc-card-tabs");
+  const cards = [...new Set(ccTx.map(txCardName))].sort();
+  if (cards.length <= 1) { el.innerHTML = ""; return; }
+  const all = ["__all__", ...cards];
+  el.innerHTML = `<div class="card-tab-bar">
+    ${all.map(c => `<button class="card-tab${ccCard===c?" active":""}" onclick="ccCard='${c}';ccCat='__all__';ccFreqMerchant=null;ccRender()">${c==="__all__"?"All Cards":c}</button>`).join("")}
+  </div>`;
+}
+
+async function ccDeleteImport(id) {
+  if (!confirm("Remove this import and its transactions?")) return;
+  await fetch(`/api/apple-card/imports/${id}`, {method:"DELETE"});
+  await ccLoad();
+  toast("Import removed");
+}
+
+function ccRender() {
+  const has = ccTx.length > 0;
+  ccRenderImports();
+  document.getElementById("cc-importZone").style.display  = has ? "none" : "";
+  document.getElementById("cc-dashboard").style.display   = has ? "" : "none";
+  if (currentTab === "cc") updateTopbarButtons();
+  if (!has) return;
+  ccRenderCardTabs();
+  buildTolBtns("cc", ccRecurTol, val => { ccRecurTol = val; ccRender(); });
+  const ccRecurRaw = detectRecurring(
+    ccTx.filter(t => t.amount > 0 && (ccCard==="__all__"||txCardName(t)===ccCard)),
+    t => t.merchant || t.description || "Unknown",
+    t => t.amount,
+    t => catColor(t.category),
+    ccRecurTol
+  );
+  const ccRecur = ccRecurRaw
+    .filter(g => longestConsecutiveMonths(g.txs) >= 6)
+    .sort((a, b) => {
+      const lastA = Math.max(...a.txs.map(t => parseDate(t.tx_date).getTime()));
+      const lastB = Math.max(...b.txs.map(t => parseDate(t.tx_date).getTime()));
+      return lastB - lastA;
+    });
+  renderRecurring("cc", ccRecur, null);
+  ccBuildRangeFilter();
+  ccBuildCatFilter();
+  ccRenderStats();
+  ccRenderComparison();
+  ccRenderBar();
+  ccRenderVelocity();
+  ccRenderDow();
+  ccRenderCats();
+  ccRenderFrequent();
+  ccRenderTx();
+}
+
+function ccBuildRangeFilter() {
+  const now = new Date();
+  const years = [...new Set(ccPurchases(ccTx).map(yearOf))].sort().reverse();
+  const items = [
+    {key:"thisMonth",label:"This Month"},
+    {key:"thisYear", label:"This Year"},
+  ];
+  if (ccPurchases(ccTx).some(t => yearOf(t)===now.getFullYear()-1)) items.push({key:"lastYear",label:"Last Year"});
+  years.filter(y => y < now.getFullYear()-1).forEach(y => items.push({key:String(y),label:String(y)}));
+  items.push({key:"all",label:"All Time"});
+
+  const bar = document.getElementById("cc-rangeFilter");
+  bar.innerHTML = `<span class="filter-label">Range</span>`;
+  items.forEach(({key,label}) => {
+    const b = document.createElement("button");
+    b.className = "filter-pill" + (ccRange===key ? " active" : "");
+    b.textContent = label;
+    b.onclick = () => { ccRange=key; ccRender(); };
+    bar.appendChild(b);
+  });
+  if (!items.find(i => i.key===ccRange)) ccRange = "all";
+}
+
+function ccBuildCatFilter() {
+  const cats = [...new Set(ccPurchases(ccTx.filter(ccRangeFilter)).map(ccEffCat))].sort();
+  const bar = document.getElementById("cc-catFilter");
+  bar.innerHTML = `<span class="filter-label">Category</span>`;
+  const allBtn = document.createElement("button");
+  allBtn.className = "cat-pill" + (ccCat==="__all__" ? " active" : "");
+  allBtn.textContent = "All";
+  allBtn.onclick = () => { ccCat="__all__"; ccRender(); };
+  bar.appendChild(allBtn);
+  cats.forEach(cat => {
+    const b = document.createElement("button");
+    b.className = "cat-pill" + (ccCat===cat ? " active" : "");
+    b.innerHTML = `<span class="cdot" style="background:${catColor(cat)}"></span>${cat}`;
+    b.onclick = () => { ccCat = ccCat===cat ? "__all__" : cat; ccRender(); };
+    bar.appendChild(b);
+  });
+  if (!cats.includes(ccCat) && ccCat!=="__all__") ccCat = "__all__";
+}
+
+function ccRangeLabel() {
+  if (ccRange==="thisMonth") return new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  if (ccRange==="thisYear")  return String(new Date().getFullYear());
+  if (ccRange==="lastYear")  return String(new Date().getFullYear()-1);
+  if (/^\d{4}-\d{2}$/.test(ccRange)) return fmtMonthFull(ccRange);
+  if (/^\d{4}$/.test(ccRange)) return ccRange;
+  return "All Time";
+}
+
+function ccRenderStats() {
+  const tx = ccFiltered();
+  const total = tx.reduce((s,t) => s+t.amount, 0);
+  const months = new Set(tx.map(monthKey));
+  const avg = months.size > 0 ? total/months.size : 0;
+  document.getElementById("cc-statTotal").textContent = fmtUSDShort(total);
+  document.getElementById("cc-statSub").textContent = ccRangeLabel();
+  document.getElementById("cc-statAvg").textContent = fmtUSDShort(avg);
+  document.getElementById("cc-statAvgSub").textContent = `over ${months.size} month${months.size!==1?"s":""}`;
+  document.getElementById("cc-statCount").textContent = tx.length;
+  document.getElementById("cc-statCountSub").textContent = `${months.size} month${months.size!==1?"s":""}`;
+  document.getElementById("cc-statAvgTx").textContent = tx.length ? fmtUSD(total/tx.length) : "$0";
+}
+
+function ccRenderBar() {
+  const src = ccPurchases(ccTx.filter(ccRangeFilter));
+  const byMonth = {};
+  src.forEach(t => {
+    if (ccCat !== "__all__" && ccEffCat(t) !== ccCat) return;
+    const k = monthKey(t); byMonth[k] = (byMonth[k]||0) + t.amount;
+  });
+  const keys = Object.keys(byMonth).sort();
+  const selectedIdx = /^\d{4}-\d{2}$/.test(ccRange) ? keys.indexOf(ccRange) : -1;
+  const colors = keys.map((k,i) => i===selectedIdx ? "rgba(34,211,238,.5)" : "rgba(34,211,238,.15)");
+  const borders= keys.map((k,i) => i===selectedIdx ? "rgba(34,211,238,.9)" : "rgba(34,211,238,.4)");
+
+  if (ccBar) ccBar.destroy();
+  ccBar = new Chart(document.getElementById("cc-barChart").getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: keys.map(fmtMonthShort),
+      datasets: [{ data: keys.map(k=>byMonth[k]), backgroundColor: colors, hoverBackgroundColor: "rgba(34,211,238,.35)", borderColor: borders, borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${fmtUSD(c.raw)}`, title: c => fmtMonthFull(keys[c[0].dataIndex]) } }
+      },
+      scales: {
+        x: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11}} },
+        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11}, callback:v=>"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
+      },
+      onClick(evt, els) {
+        if (!els.length) return;
+        const k = keys[els[0].index];
+        if (ccRange === k) { ccRange="all"; } else { ccRange = k; }
+        ccRender();
+        setTimeout(() => document.getElementById("cc-txCard").scrollIntoView({behavior:"smooth",block:"start"}), 100);
+      },
+      animation: { duration: 350 },
+    }
+  });
+}
+
+const MERCHANT_PALETTE = [
+  "#22d3ee","#a78bfa","#34d399","#f59e0b","#f87171",
+  "#818cf8","#4ade80","#fb923c","#c084fc","#38bdf8",
+  "#e879f9","#fbbf24","#86efac","#fb7185","#7dd3fc",
+];
+
+function ccRenderCats() {
+  const tx = ccFiltered();
+  const total = tx.reduce((s,t)=>s+t.amount,0);
+  const drillDown = ccCat !== "__all__";
+
+  let sorted, colorFn;
+  if (drillDown) {
+    const byMerchant = {};
+    tx.forEach(t => {
+      const name = t.merchant || t.description || "Unknown";
+      byMerchant[name] = (byMerchant[name]||0) + t.amount;
+    });
+    sorted = Object.entries(byMerchant).sort((a,b)=>b[1]-a[1]);
+    colorFn = (_, i) => MERCHANT_PALETTE[i % MERCHANT_PALETTE.length];
+    document.getElementById("cc-catListTitle").textContent = ccCat;
+  } else {
+    const bycat = {};
+    tx.forEach(t => { const c=ccEffCat(t); bycat[c]=(bycat[c]||0)+t.amount; });
+    sorted = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+    colorFn = (cat) => catColor(cat);
+    document.getElementById("cc-catListTitle").textContent = "By Category";
+  }
+
+  const list = document.getElementById("cc-catList");
+  list.innerHTML = "";
+  sorted.forEach(([label, amt], i) => {
+    const color = colorFn(label, i);
+    const pct = total>0 ? (amt/total*100) : 0;
+    const row = document.createElement("div");
+    row.className = "cat-row" + (!drillDown && ccCat===label ? " selected" : "");
+    row.innerHTML = `<div class="cdot" style="background:${color}"></div>
+      <div class="cat-name">${label}</div>
+      <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="cat-amt">${fmtUSDShort(amt)}</div>`;
+    if (!drillDown) row.onclick = () => { ccCat = ccCat===label ? "__all__" : label; ccRender(); };
+    list.appendChild(row);
+  });
+
+  if (ccDonut) ccDonut.destroy();
+  ccDonut = new Chart(document.getElementById("cc-donut").getContext("2d"), {
+    type: "doughnut",
+    data: { labels: sorted.map(([l])=>l), datasets:[{ data: sorted.map(([,v])=>v), backgroundColor: sorted.map(([l],i)=>colorFn(l,i)), borderWidth:0, hoverOffset:4 }] },
+    options: { cutout:"70%", plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>` ${fmtUSD(c.raw)} · ${(c.raw/total*100).toFixed(0)}%`}}}, animation:{duration:350} }
+  });
+  document.getElementById("cc-donutTotal").textContent = fmtUSDShort(total);
+}
+
+function ccRenderFrequent() {
+  const wrap = document.getElementById("cc-frequent-wrap");
+  const pool = ccTx.filter(t =>
+    t.amount > 0 &&
+    (ccCard==="__all__" || txCardName(t)===ccCard) &&
+    ccRangeFilter(t)
+  );
+  const counts = {}, totals = {}, cats = {};
+  pool.forEach(t => {
+    const name = (t.merchant || t.description || "").trim();
+    if (!name) return;
+    counts[name] = (counts[name]||0) + 1;
+    totals[name] = (totals[name]||0) + t.amount;
+    if (!cats[name]) cats[name] = t.category || "Other";
+  });
+  const CC_FREQ_PRESETS = [3, 6, 12, 24, 48, 96];
+  const frequent = Object.entries(counts)
+    .filter(([,n]) => n >= ccFreqMin)
+    .sort((a,b) => b[1]-a[1]);
+
+  const tolBtns = CC_FREQ_PRESETS.map(v =>
+    `<button class="tol-btn${ccFreqMin===v?" active":""}" onclick="ccFreqMin=${v};ccRender()">${v}+</button>`
+  ).join("");
+
+  const chips = frequent.map(([name, count]) => {
+    const total = totals[name];
+    const cat = cats[name];
+    const isActive = ccFreqMerchant === name;
+    const safe = name.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+    return `<div class="freq-chip${isActive?" active":""}" onclick="ccFreqMerchant=ccFreqMerchant==='${safe}'?null:'${safe}';ccRender()">
+      <div class="freq-chip-dot" style="background:${catColor(cat)}"></div>
+      <span class="freq-chip-name" title="${name}">${name}</span>
+      <span class="freq-chip-count">${count}×</span>
+      <span class="freq-chip-amt">${fmtUSDShort(total)}</span>
+    </div>`;
+  }).join("");
+
+  wrap.innerHTML = `<div class="chart-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div class="card-title" style="margin:0;flex:1">Frequent Payees</div>
+      ${ccFreqMerchant ? `<button class="filter-pill active" style="font-size:10px;padding:3px 8px" onclick="ccFreqMerchant=null;ccRender()">Clear filter ×</button>` : ""}
+      <span style="font-size:10px;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase;font-weight:600">Min</span>
+      <div class="tol-btns">${tolBtns}</div>
+    </div>
+    ${frequent.length ? `<div class="freq-grid">${chips}</div>` : `<div style="padding:12px 0;color:var(--text-3);font-size:13px">No merchants with ${ccFreqMin}+ transactions in this range.</div>`}
+  </div>`;
+}
+
+function ccCompTotal(filterFn) {
+  return ccPurchases(ccTx.filter(t =>
+    (ccCard==="__all__" || txCardName(t)===ccCard) &&
+    (ccCat==="__all__"  || ccEffCat(t)===ccCat) &&
+    (ccFreqMerchant===null || (t.merchant||t.description)===ccFreqMerchant) &&
+    filterFn(t)
+  )).reduce((s,t)=>s+t.amount,0);
+}
+
+function ccRenderComparison() {
+  const el = document.getElementById("cc-compRow");
+  el.innerHTML = "";
+  const cur = ccFiltered().reduce((s,t)=>s+t.amount,0);
+  if (!cur) return;
+  const now = new Date();
+  const pairs = [];
+
+  if (ccRange === "thisMonth") {
+    const pm = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    pairs.push({ label: pm.toLocaleDateString("en-US",{month:"short",year:"numeric"}),
+      total: ccCompTotal(t => { const d=parseDate(t.tx_date); return d.getFullYear()===pm.getFullYear()&&d.getMonth()===pm.getMonth(); }) });
+    const ya = new Date(now.getFullYear()-1, now.getMonth(), 1);
+    pairs.push({ label: ya.toLocaleDateString("en-US",{month:"short",year:"numeric"}),
+      total: ccCompTotal(t => { const d=parseDate(t.tx_date); return d.getFullYear()===ya.getFullYear()&&d.getMonth()===ya.getMonth(); }) });
+  } else if (ccRange === "thisYear") {
+    const y = now.getFullYear()-1;
+    pairs.push({ label: String(y), total: ccCompTotal(t => parseDate(t.tx_date).getFullYear()===y) });
+  } else if (ccRange === "lastYear") {
+    const y = now.getFullYear()-2;
+    pairs.push({ label: String(y), total: ccCompTotal(t => parseDate(t.tx_date).getFullYear()===y) });
+  } else if (/^\d{4}$/.test(ccRange)) {
+    const y = +ccRange-1;
+    pairs.push({ label: String(y), total: ccCompTotal(t => parseDate(t.tx_date).getFullYear()===y) });
+  } else if (/^\d{4}-\d{2}$/.test(ccRange)) {
+    const [ry,rm] = ccRange.split("-").map(Number);
+    const pm = new Date(ry, rm-2, 1);
+    pairs.push({ label: pm.toLocaleDateString("en-US",{month:"short",year:"numeric"}),
+      total: ccCompTotal(t => { const d=parseDate(t.tx_date); return d.getFullYear()===pm.getFullYear()&&d.getMonth()===pm.getMonth(); }) });
+    const ya = new Date(ry-1, rm-1, 1);
+    pairs.push({ label: ya.toLocaleDateString("en-US",{month:"short",year:"numeric"}),
+      total: ccCompTotal(t => { const d=parseDate(t.tx_date); return d.getFullYear()===ya.getFullYear()&&d.getMonth()===ya.getMonth(); }) });
+  }
+
+  pairs.forEach(({label, total}) => {
+    if (!total) return;
+    const delta = cur - total;
+    const pct = (Math.abs(delta) / total * 100).toFixed(0);
+    const cls = delta > 1 ? "delta-up" : delta < -1 ? "delta-dn" : "delta-flat";
+    const arrow = delta > 1 ? "↑" : delta < -1 ? "↓" : "→";
+    const sign = delta > 0 ? "+" : "";
+    const pill = document.createElement("div");
+    pill.className = "comp-pill";
+    pill.innerHTML = `<div class="comp-pill-lbl">vs ${label}</div>
+      <div class="comp-pill-val ${cls}">${arrow} ${sign}${fmtUSD(delta)} (${pct}%)</div>`;
+    el.appendChild(pill);
+  });
+}
+
+function ccRenderVelocity() {
+  const card = document.getElementById("cc-velocityCard");
+  const src = ccPurchases(ccTx.filter(t =>
+    (ccCard==="__all__" || txCardName(t)===ccCard) &&
+    ccRangeFilter(t) &&
+    (ccCat==="__all__" || ccEffCat(t)===ccCat)
+  ));
+  if (src.length < 5) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  const dayMap = {};
+  src.forEach(t => {
+    const d = parseDate(t.tx_date);
+    const ld = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+    const k = `${ld.getFullYear()}-${String(ld.getMonth()+1).padStart(2,"0")}-${String(ld.getDate()).padStart(2,"0")}`;
+    dayMap[k] = (dayMap[k]||0) + t.amount;
+  });
+
+  const allDays = Object.keys(dayMap).sort();
+  const msDay = 86400000;
+  const start = new Date(allDays[0]+"T12:00:00");
+  const end   = new Date(allDays[allDays.length-1]+"T12:00:00");
+
+  const labels = [], values = [];
+  for (let d = new Date(start); d <= end; d = new Date(d.getTime() + msDay)) {
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    labels.push(k);
+    let sum = 0;
+    for (let i = 0; i < 30; i++) {
+      const pk = new Date(d.getTime() - i*msDay);
+      const pk2 = `${pk.getFullYear()}-${String(pk.getMonth()+1).padStart(2,"0")}-${String(pk.getDate()).padStart(2,"0")}`;
+      sum += dayMap[pk2] || 0;
+    }
+    values.push(sum);
+  }
+
+  const step = Math.max(1, Math.floor(labels.length / 8));
+  const tickLabels = labels.map((l,i) =>
+    i%step===0 ? new Date(l+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}) : ""
+  );
+
+  if (ccVelocity) ccVelocity.destroy();
+  ccVelocity = new Chart(document.getElementById("cc-velocityChart").getContext("2d"), {
+    type: "line",
+    data: {
+      labels: tickLabels,
+      datasets: [{ data: values, borderColor: "rgba(34,211,238,.8)", backgroundColor: "rgba(34,211,238,.07)",
+        borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode:"index", intersect:false, callbacks: {
+          title: c => new Date(labels[c[0].dataIndex]+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}),
+          label: c => ` ${fmtUSD(c.raw)} rolling 30d`
+        }}
+      },
+      scales: {
+        x: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11},maxRotation:0} },
+        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11},callback:v=>"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
+      },
+      animation: { duration: 350 },
+    }
+  });
+}
+
+function ccRenderDow() {
+  const card = document.getElementById("cc-dowCard");
+  const tx = ccFiltered();
+  if (!tx.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+
+  const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const totals = new Array(7).fill(0);
+  const seenDates = new Set();
+  const dayCounts = new Array(7).fill(0);
+
+  tx.forEach(t => {
+    const d = parseDate(t.tx_date);
+    const ld = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+    const dow = ld.getDay();
+    const dateKey = `${ld.getFullYear()}-${ld.getMonth()}-${ld.getDate()}`;
+    totals[dow] += t.amount;
+    if (!seenDates.has(dateKey)) { seenDates.add(dateKey); dayCounts[dow]++; }
+  });
+
+  const avgs = totals.map((t,i) => dayCounts[i] > 0 ? t / dayCounts[i] : 0);
+  const maxAvg = Math.max(...avgs, 1);
+
+  document.getElementById("cc-dowGrid").innerHTML = DAYS.map((day,i) => {
+    const intensity = avgs[i] / maxAvg;
+    const bg = `rgba(34,211,238,${(0.07 + intensity * 0.46).toFixed(2)})`;
+    return `<div class="dow-cell" style="background:${bg}">
+      <div class="dow-cell-day">${day}</div>
+      <div class="dow-cell-amt">${avgs[i] > 0.01 ? fmtUSDShort(avgs[i]) : "—"}</div>
+    </div>`;
+  }).join("");
+}
+
+function ccRenderTx() {
+  buildSortBtns("cc", ccSort, ccSetSort);
+  const base = ccTx.filter(t => ccRangeFilter(t) && (ccCat==="__all__" || ccEffCat(t)===ccCat) && (ccFreqMerchant===null || (t.merchant||t.description)===ccFreqMerchant));
+  const tx = applySearchSort(base, ccSearch, ccSort, t => t.merchant || t.description || "");
+  if (ccTxView === "merchant") { ccRenderTxByMerchant(tx); return; }
+  const list = document.getElementById("cc-txList");
+  list.innerHTML = "";
+  document.getElementById("cc-txCount").textContent = `${tx.length} transaction${tx.length!==1?"s":""}`;
+  if (!tx.length) { list.innerHTML=`<div style="padding:32px;text-align:center;color:var(--text-3);font-size:13px">No transactions</div>`; return; }
+
+  // Flat list when sorting by amount; date-grouped otherwise
+  const byAmt = ccSort === "amt-desc" || ccSort === "amt-asc";
+  if (byAmt) {
+    tx.forEach(t => {
+      const isCredit = t.amount<=0;
+      const row = document.createElement("div");
+      row.className = "tx-row";
+      row.innerHTML = `<div class="tx-dot" style="background:${catColor(t.category)}"></div>
+        <div class="tx-info"><div class="tx-merchant">${t.merchant||t.description}</div>
+        <div class="tx-meta">${fmtDateHdr(t.tx_date)} · ${t.category||"Other"}${t.purchaser?` · ${t.purchaser.split(" ")[0]}`:""}${t.source==="fidelity"?" · Fidelity":""}</div></div>
+        <div class="tx-amt ${isCredit?"credit":"debit"}">${isCredit?"+":""}${fmtUSD(t.amount)}</div>`;
+      list.appendChild(row);
+    });
+    return;
+  }
+
+  const groups = {};
+  tx.forEach(t => (groups[t.tx_date]=groups[t.tx_date]||[]).push(t));
+  Object.entries(groups).forEach(([date,txs]) => {
+    const dayTotal = txs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+    const grp = document.createElement("div");
+    grp.innerHTML = `<div class="tx-date-row"><span>${fmtDateHdr(date)}</span>${dayTotal>0?`<span class="tx-date-sum">${fmtUSD(dayTotal)}</span>`:""}</div>`;
+    txs.forEach(t => {
+      const isCredit = t.amount<=0;
+      const row = document.createElement("div");
+      row.className = "tx-row";
+      row.innerHTML = `<div class="tx-dot" style="background:${catColor(t.category)}"></div>
+        <div class="tx-info"><div class="tx-merchant">${t.merchant||t.description}</div><div class="tx-meta">${t.category||"Other"}${t.purchaser?` · ${t.purchaser.split(" ")[0]}`:""}${t.source==="fidelity"?" · Fidelity":""}</div></div>
+        <div class="tx-amt ${isCredit?"credit":"debit"}">${isCredit?"+":""}${fmtUSD(t.amount)}</div>`;
+      grp.appendChild(row);
+    });
+    list.appendChild(grp);
+  });
+}
+
+async function ccImport(file, cardName) {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (cardName) fd.append("card_name", cardName);
+  const res = await fetch("/api/apple-card/import",{method:"POST",body:fd});
+  const d = await res.json();
+  if (d.error) { toast("Error: "+d.error); return; }
+  toast(`Imported ${d.imported} transaction${d.imported!==1?"s":""}${d.duplicates?` · ${d.duplicates} skipped`:""}`);
+  await ccLoad();
+}
+document.getElementById("cc-fileInput").addEventListener("change", e => { if(e.target.files[0]) showImportModal("cc", e.target.files[0]); e.target.value=""; });
+
+async function ccClearAll() {
+  if (!confirm("Remove all credit card transactions?")) return;
+  await fetch("/api/apple-card/clear",{method:"POST"});
+  ccTx=[]; ccImports=[]; ccCat="__all__"; ccCard="__all__"; ccRange="all"; ccFreqMerchant=null; ccRender(); toast("Cleared");
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// BANK
+// ══════════════════════════════════════════════════════════════
+let bkTx = [], bkImports = [];
+let bkAcct   = "__all__";
+let bkRange  = "all";
+let bkType   = "__all__"; // "Credit" | "Debit" | "__all__"
+let bkCat          = "__all__";
+let bkHideInterest = false;
+let bkBar    = null;
+let bkDonut  = null;
+let _bkImportsOpen = true;
+
+function bkRangeFilter(tx) {
+  const now = new Date(); const d = parseDate(tx.tx_date);
+  if (bkRange==="thisMonth") return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+  if (bkRange==="thisYear")  return d.getFullYear()===now.getFullYear();
+  if (bkRange==="lastYear")  return d.getFullYear()===now.getFullYear()-1;
+  if (/^\d{4}-\d{2}$/.test(bkRange)) return monthKey(tx)===bkRange;
+  if (/^\d{4}$/.test(bkRange)) return d.getFullYear()===+bkRange;
+  return true;
+}
+function bkFiltered() {
+  return bkTx.filter(t =>
+    (bkAcct==="__all__" || txAcctName(t)===bkAcct) &&
+    bkRangeFilter(t) &&
+    (bkType==="__all__" || t.tx_type===bkType) &&
+    (bkCat==="__all__" || (t.category||"Other")===bkCat) &&
+    !(bkHideInterest && (t.category||"Other")==="Interest") &&
+    (bkFreqPayee===null || stripBkPrefix(t.description)===bkFreqPayee)
+  );
+}
+function bkDebits() {
+  return bkTx.filter(t =>
+    (bkAcct==="__all__" || txAcctName(t)===bkAcct) &&
+    bkRangeFilter(t) &&
+    t.tx_type !== "Credit" &&
+    !(bkHideInterest && (t.category||"Other")==="Interest")
+  );
+}
+
+async function bkLoad() {
+  const res = await fetch("/api/bank/transactions");
+  const d = await res.json();
+  bkTx = d.transactions || [];
+  bkImports = d.imports || [];
+  applyMerchantCategories(bkTx);
+  bkRender();
+}
+
+function bkRenderImports() {
+  const el = document.getElementById("bk-imports-panel");
+  if (!bkImports.length) { el.innerHTML = ""; return; }
+  const rows = bkImports.map(imp => `
+    <div class="import-file-row">
+      <svg class="import-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div class="import-file-info">
+        <div class="import-file-name">${imp.filename}</div>
+        <div class="import-file-meta">${imp.account_name||""}${imp.new_transactions!=null?` · ${imp.new_transactions} transactions`:""} · ${fmtImportDate(imp.imported_at)}</div>
+      </div>
+      <span class="import-source-badge bank">Bank</span>
+      <button class="import-delete-btn" title="Remove this import" onclick="bkDeleteImport('${imp.id}')">×</button>
+    </div>`).join("");
+  el.innerHTML = `<div class="imports-panel">
+    <div class="imports-panel-hdr" onclick="_bkImportsOpen=!_bkImportsOpen;bkRenderImports()">
+      <span class="imports-panel-title">Imported Files</span>
+      <span class="imports-count-badge">${bkImports.length}</span>
+      <span style="flex:1"></span>
+      <span class="imports-chevron">${_bkImportsOpen?"▾":"▸"}</span>
+    </div>
+    ${_bkImportsOpen ? rows : ""}
+  </div>`;
+}
+
+async function bkDeleteImport(id) {
+  if (!confirm("Remove this import and its transactions?")) return;
+  await fetch(`/api/bank/imports/${id}`, {method:"DELETE"});
+  await bkLoad();
+  toast("Import removed");
+}
+
+function bkRender() {
+  const has = bkTx.length > 0;
+  bkRenderImports();
+  document.getElementById("bk-importZone").style.display  = has ? "none" : "";
+  document.getElementById("bk-dashboard").style.display   = has ? "" : "none";
+  if (currentTab === "bank") updateTopbarButtons();
+  if (!has) return;
+  buildTolBtns("bk", bkRecurTol, val => { bkRecurTol = val; bkRender(); });
+  const bkRecur = detectRecurring(
+    bkTx.filter(t => bkRangeFilter(t)),
+    t => t.description || "Unknown",
+    t => t.amount,
+    t => t.tx_type === "Credit" ? "var(--pos)" : "var(--neg)",
+    bkRecurTol
+  );
+  renderRecurring("bk", bkRecur, bkAcct);
+  bkBuildAcctFilter();
+  bkBuildRangeFilter();
+  bkBuildTypeFilter();
+  bkBuildCatFilter();
+  bkRenderStats();
+  bkRenderBar();
+  bkRenderCats();
+  bkRenderFrequent();
+  bkRenderTx();
+}
+
+const _BK_PREFIX_RE = /^(withdrawal from|deposit from|transfer (from|to)|payment (from|to)|online transfer (from|to)|mobile deposit( from)?|ach (withdrawal|deposit|credit|debit)|direct deposit( from)?|recurring (payment|transfer) (from|to))\s+/i;
+
+function stripBkPrefix(desc) {
+  return (desc || "").trim().replace(_BK_PREFIX_RE, "").trim();
+}
+
+function bkRenderFrequent() {
+  const wrap = document.getElementById("bk-frequent-wrap");
+  const pool = bkTx.filter(t =>
+    (bkAcct==="__all__" || txAcctName(t)===bkAcct) &&
+    bkRangeFilter(t)
+  );
+  // Group by STRIPPED name so "Withdrawal from X" and "Deposit from X" merge
+  const counts = {}, totals = {}, cats = {};
+  pool.forEach(t => {
+    const raw = (t.description || "").trim();
+    if (!raw) return;
+    const key = stripBkPrefix(raw);
+    counts[key] = (counts[key]||0) + 1;
+    totals[key] = (totals[key]||0) + (t.tx_type === "Credit" ? t.amount : -t.amount);
+    if (!cats[key]) cats[key] = t.category || "Other";
+  });
+  const frequent = Object.entries(counts)
+    .filter(([,n]) => n >= 3)
+    .sort((a,b) => b[1]-a[1]);
+
+  if (!frequent.length) { wrap.innerHTML = ""; return; }
+
+  const chips = frequent.map(([name, count]) => {
+    const total = totals[name];
+    const isActive = bkFreqPayee === name;
+    const safe = name.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+    return `<div class="freq-chip${isActive?" active":""}" onclick="bkFreqPayee=bkFreqPayee==='${safe}'?null:'${safe}';bkRender()">
+      <div class="freq-chip-dot" style="background:${total>=0?"var(--pos)":"var(--neg)"}"></div>
+      <span class="freq-chip-name" title="${name}">${name}</span>
+      <span class="freq-chip-count">${count}×</span>
+      <span class="freq-chip-amt" style="color:${total>=0?"var(--pos)":"var(--neg)"}">${total>=0?"+":"−"}${fmtUSDShort(Math.abs(total))}</span>
+    </div>`;
+  }).join("");
+
+  wrap.innerHTML = `<div class="chart-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="card-title" style="margin:0">Frequent Payees</div>
+      ${bkFreqPayee ? `<button class="filter-pill active" style="font-size:10px;padding:3px 8px" onclick="bkFreqPayee=null;bkRender()">Clear filter ×</button>` : ""}
+    </div>
+    <div class="freq-grid">${chips}</div>
+  </div>`;
+}
+
+function bkBuildAcctFilter() {
+  const accts = [...new Set(bkTx.map(txAcctName))].sort();
+  const bar = document.getElementById("bk-acctFilter");
+  bar.innerHTML = `<span class="filter-label">Account</span>`;
+  const allBtn = document.createElement("button");
+  allBtn.className = "filter-pill" + (bkAcct==="__all__" ? " active" : "");
+  allBtn.textContent = "All Accounts";
+  allBtn.onclick = () => { bkAcct="__all__"; bkRender(); };
+  bar.appendChild(allBtn);
+  accts.forEach(a => {
+    const b = document.createElement("button");
+    b.className = "filter-pill" + (bkAcct===a ? " active" : "");
+    b.textContent = a;
+    b.onclick = () => { bkAcct = bkAcct===a ? "__all__" : a; bkRender(); };
+    bar.appendChild(b);
+  });
+}
+
+function bkBuildRangeFilter() {
+  const now = new Date();
+  const years = [...new Set(bkTx.map(yearOf))].sort().reverse();
+  const items = [{key:"thisMonth",label:"This Month"},{key:"thisYear",label:"This Year"}];
+  if (bkTx.some(t=>yearOf(t)===now.getFullYear()-1)) items.push({key:"lastYear",label:"Last Year"});
+  years.filter(y=>y<now.getFullYear()-1).forEach(y=>items.push({key:String(y),label:String(y)}));
+  items.push({key:"all",label:"All Time"});
+
+  const bar = document.getElementById("bk-rangeFilter");
+  bar.innerHTML = `<span class="filter-label">Range</span>`;
+  items.forEach(({key,label}) => {
+    const b = document.createElement("button");
+    b.className = "filter-pill" + (bkRange===key ? " active" : "");
+    b.textContent = label;
+    b.onclick = () => { bkRange=key; bkRender(); };
+    bar.appendChild(b);
+  });
+}
+
+function bkBuildTypeFilter() {
+  const bar = document.getElementById("bk-typeFilter");
+  bar.innerHTML = `<span class="filter-label">Type</span>`;
+  [{key:"__all__",label:"All"},{key:"Credit",label:"Deposits"},{key:"Debit",label:"Withdrawals"}].forEach(({key,label}) => {
+    const b = document.createElement("button");
+    b.className = "filter-pill" + (bkType===key ? " active" : "");
+    b.textContent = label;
+    b.onclick = () => { bkType=key; bkRender(); };
+    bar.appendChild(b);
+  });
+  // Interest toggle — only show if any interest transactions exist in current range/account
+  const hasInterest = bkTx.some(t =>
+    (bkAcct==="__all__" || txAcctName(t)===bkAcct) &&
+    bkRangeFilter(t) &&
+    (t.category||"Other")==="Interest"
+  );
+  if (hasInterest) {
+    const sep = document.createElement("span");
+    sep.style.cssText = "width:1px;background:var(--border);height:16px;margin:0 4px;align-self:center";
+    bar.appendChild(sep);
+    const btn = document.createElement("button");
+    btn.className = "filter-pill" + (bkHideInterest ? " active" : "");
+    btn.textContent = "Hide Interest";
+    btn.onclick = () => { bkHideInterest = !bkHideInterest; bkRender(); };
+    bar.appendChild(btn);
+  }
+}
+
+function bkBuildCatFilter() {
+  const debits = bkDebits();
+  const cats = [...new Set(debits.map(t => t.category||"Other"))].sort();
+  const bar = document.getElementById("bk-catFilter");
+  if (cats.length <= 1) { bar.innerHTML = ""; return; }
+  bar.innerHTML = `<span class="filter-label">Category</span>`;
+  const allBtn = document.createElement("button");
+  allBtn.className = "filter-pill" + (bkCat==="__all__" ? " active" : "");
+  allBtn.textContent = "All";
+  allBtn.onclick = () => { bkCat="__all__"; bkRender(); };
+  bar.appendChild(allBtn);
+  cats.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "filter-pill" + (bkCat===c ? " active" : "");
+    b.textContent = c;
+    b.onclick = () => { bkCat = bkCat===c ? "__all__" : c; bkRender(); };
+    bar.appendChild(b);
+  });
+}
+
+function bkRenderCats() {
+  const debits = bkFiltered().filter(t => t.tx_type !== "Credit");
+  const total = debits.reduce((s,t)=>s+t.amount,0);
+  const bycat = {};
+  debits.forEach(t => { const c=t.category||"Other"; bycat[c]=(bycat[c]||0)+t.amount; });
+  const sorted = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+
+  // Category list
+  const list = document.getElementById("bk-catList");
+  list.innerHTML = "";
+  sorted.forEach(([cat,amt]) => {
+    const pct = total>0 ? (amt/total)*100 : 0;
+    const row = document.createElement("div");
+    row.className = "cat-row";
+    row.innerHTML = `
+      <div class="cdot" style="background:${catColor(cat)}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span class="cat-name">${cat}</span><span class="cat-amt">${fmtUSDShort(amt)}</span>
+        </div>
+        <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${catColor(cat)}"></div></div>
+      </div>`;
+    row.style.cursor = "pointer";
+    row.onclick = () => { bkCat = bkCat===cat ? "__all__" : cat; bkRender(); };
+    list.appendChild(row);
+  });
+
+  // Donut chart
+  document.getElementById("bk-donutTotal").textContent = fmtUSDShort(total);
+  if (bkDonut) bkDonut.destroy();
+  bkDonut = new Chart(document.getElementById("bk-donut").getContext("2d"), {
+    type: "doughnut",
+    data: { labels:sorted.map(([c])=>c), datasets:[{data:sorted.map(([,v])=>v), backgroundColor:sorted.map(([c])=>catColor(c)), borderWidth:0, hoverOffset:4}] },
+    options: {
+      responsive:true, cutout:"68%",
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmtUSD(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)`}} },
+    }
+  });
+}
+
+function bkRenderStats() {
+  const tx = bkFiltered();
+  const credits = tx.filter(t=>t.tx_type==="Credit").reduce((s,t)=>s+Math.abs(t.amount),0);
+  const debits  = tx.filter(t=>t.tx_type!=="Credit").reduce((s,t)=>s+Math.abs(t.amount),0);
+  const net = credits - debits;
+  document.getElementById("bk-statIn").textContent    = fmtUSDShort(credits);
+  document.getElementById("bk-statInSub").textContent = `${tx.filter(t=>t.tx_type==="Credit").length} transactions`;
+  document.getElementById("bk-statOut").textContent   = fmtUSDShort(debits);
+  document.getElementById("bk-statOutSub").textContent= `${tx.filter(t=>t.tx_type!=="Credit").length} transactions`;
+  const netEl = document.getElementById("bk-statNet");
+  netEl.textContent = (net>=0?"+":"-") + fmtUSDShort(Math.abs(net));
+  netEl.style.color = net>=0 ? "var(--pos)" : "var(--neg)";
+  document.getElementById("bk-statCount").textContent = tx.length;
+}
+
+function bkRenderBar() {
+  const src = bkTx.filter(t => (bkAcct==="__all__"||txAcctName(t)===bkAcct) && bkRangeFilter(t));
+  const byMonthCredit = {}, byMonthDebit = {};
+  src.forEach(t => {
+    if (bkType!=="__all__" && t.tx_type!==bkType) return;
+    const k = monthKey(t);
+    if (t.tx_type==="Credit") byMonthCredit[k]=(byMonthCredit[k]||0)+Math.abs(t.amount);
+    else                       byMonthDebit[k] =(byMonthDebit[k] ||0)+Math.abs(t.amount);
+  });
+  const keys = [...new Set([...Object.keys(byMonthCredit),...Object.keys(byMonthDebit)])].sort();
+  const selectedIdx = /^\d{4}-\d{2}$/.test(bkRange) ? keys.indexOf(bkRange) : -1;
+
+  if (bkBar) bkBar.destroy();
+  bkBar = new Chart(document.getElementById("bk-barChart").getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: keys.map(fmtMonthShort),
+      datasets: [
+        { label:"Credits", data:keys.map(k=>byMonthCredit[k]||0), backgroundColor:"rgba(74,222,128,.15)", hoverBackgroundColor:"rgba(74,222,128,.3)", borderColor:"rgba(74,222,128,.4)", borderWidth:1, borderRadius:4 },
+        { label:"Debits",  data:keys.map(k=>byMonthDebit[k]||0),  backgroundColor:"rgba(248,113,113,.12)", hoverBackgroundColor:"rgba(248,113,113,.25)", borderColor:"rgba(248,113,113,.35)", borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11}}, position:"top" },
+        tooltip: { callbacks:{label:c=>` ${fmtUSD(c.raw)}`, title:c=>fmtMonthFull(keys[c[0].dataIndex])} }
+      },
+      scales: {
+        x: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11}} },
+        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11}, callback:v=>"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
+      },
+      onClick(evt, els) {
+        if (!els.length) return;
+        const k = keys[els[0].index];
+        if (bkRange===k) { bkRange="all"; } else { bkRange=k; }
+        bkRender();
+        setTimeout(() => document.getElementById("bk-txCard").scrollIntoView({behavior:"smooth",block:"start"}), 100);
+      },
+      animation: { duration: 350 },
+    }
+  });
+}
+
+function bkRenderTx() {
+  buildSortBtns("bk", bkSort, bkSetSort);
+  const base = bkFiltered();
+  const tx = applySearchSort(base, bkSearch, bkSort, t => t.description || "");
+  if (bkTxView === "payee") { bkRenderTxByPayee(tx); return; }
+  const list = document.getElementById("bk-txList");
+  list.innerHTML = "";
+  document.getElementById("bk-txCount").textContent = `${tx.length} transaction${tx.length!==1?"s":""}`;
+  if (!tx.length) { list.innerHTML=`<div style="padding:32px;text-align:center;color:var(--text-3);font-size:13px">No transactions</div>`; return; }
+
+  const byAmt = bkSort === "amt-desc" || bkSort === "amt-asc";
+  if (byAmt) {
+    tx.forEach(t => {
+      const isCredit = t.tx_type==="Credit";
+      const row = document.createElement("div");
+      row.className = "tx-row";
+      row.innerHTML = `<div class="tx-dot" style="background:${isCredit?"var(--pos)":"var(--neg)"}"></div>
+        <div class="tx-info"><div class="tx-merchant">${t.description}</div>
+        <div class="tx-meta">${fmtDateHdr(t.tx_date)} · ${t.tx_type} · ···${t.account}</div></div>
+        <div class="tx-amt ${isCredit?"credit":"debit"}">${isCredit?"+":"−"}${fmtUSD(t.amount)}</div>`;
+      list.appendChild(row);
+    });
+    return;
+  }
+
+  const groups = {};
+  tx.forEach(t => (groups[t.tx_date]=groups[t.tx_date]||[]).push(t));
+  Object.entries(groups).forEach(([date,txs]) => {
+    const grp = document.createElement("div");
+    const accts = [...new Set(txs.map(txAcctName))];
+    grp.innerHTML = `<div class="tx-date-row"><span>${fmtDateHdr(date)}</span><span class="tx-date-sum">${accts.join(", ")}</span></div>`;
+    txs.forEach(t => {
+      const isCredit = t.tx_type==="Credit";
+      const row = document.createElement("div");
+      row.className = "tx-row";
+      row.innerHTML = `<div class="tx-dot" style="background:${isCredit?"var(--pos)":"var(--neg)"}"></div>
+        <div class="tx-info"><div class="tx-merchant">${t.description}</div><div class="tx-meta">${t.tx_type} · ${txAcctName(t)}</div></div>
+        <div class="tx-amt ${isCredit?"credit":"debit"}">${isCredit?"+":"−"}${fmtUSD(t.amount)}</div>`;
+      grp.appendChild(row);
+    });
+    list.appendChild(grp);
+  });
+}
+
+async function bkImport(file, accountName) {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (accountName) fd.append("account_name", accountName);
+  const res = await fetch("/api/bank/import",{method:"POST",body:fd});
+  const d = await res.json();
+  if (d.error) { toast("Error: "+d.error); return; }
+  let msg = `Imported ${d.imported} transaction${d.imported!==1?"s":""}`;
+  if (d.duplicates) msg += ` · ${d.duplicates} skipped`;
+  if (d.skipped_cc) msg += ` · ${d.skipped_cc} CC payments excluded`;
+  toast(msg);
+  await bkLoad();
+}
+document.getElementById("bk-fileInput").addEventListener("change", e => { if(e.target.files[0]) showImportModal("bk", e.target.files[0]); e.target.value=""; });
+
+async function bkClearAll() {
+  if (!confirm("Remove all bank transactions?")) return;
+  await fetch("/api/bank/clear",{method:"POST"});
+  bkTx=[]; bkImports=[]; bkAcct="__all__"; bkRange="all"; bkType="__all__"; bkCat="__all__"; bkHideInterest=false; bkFreqPayee=null; bkRender(); toast("Cleared");
+}
+
+// ── Recurring payment detection ──────────────────────────────
+let ccRecurTol = 10; // percent
+let bkRecurTol = 10;
+
+const TOL_PRESETS = [
+  { label: "Exact", val: 0 },
+  { label: "±5%",  val: 5 },
+  { label: "±15%", val: 15 },
+  { label: "±30%", val: 30 },
+];
+
+function buildTolBtns(prefix, current, onChange) {
+  const wrap = document.getElementById(`${prefix}-tolBtns`);
+  wrap.innerHTML = "";
+  TOL_PRESETS.forEach(({ label, val }) => {
+    const b = document.createElement("button");
+    b.className = "tol-btn" + (current === val ? " active" : "");
+    b.textContent = label;
+    b.onclick = () => { onChange(val); };
+    wrap.appendChild(b);
+  });
+}
+
+function longestConsecutiveMonths(txs) {
+  const months = [...new Set(txs.map(monthKey))].sort();
+  if (months.length < 2) return months.length;
+  let maxRun = 1, run = 1;
+  for (let i = 1; i < months.length; i++) {
+    const [y1, m1] = months[i-1].split("-").map(Number);
+    const [y2, m2] = months[i].split("-").map(Number);
+    if ((y2 - y1) * 12 + (m2 - m1) === 1) { run++; maxRun = Math.max(maxRun, run); }
+    else run = 1;
+  }
+  return maxRun;
+}
+
+function detectRecurring(txs, nameFn, amtFn, colorFn, tolerancePct) {
+  // Group by normalized name only
+  const byName = {};
+  txs.forEach(t => {
+    const amt = amtFn(t);
+    if (amt <= 0) return;
+    const key  = nameFn(t).trim().toLowerCase();
+    const name = nameFn(t).trim();
+    if (!byName[key]) byName[key] = { name, color: colorFn(t), txs: [] };
+    byName[key].txs.push(t);
+  });
+
+  return Object.values(byName).filter(g => {
+    if (g.txs.length < 2) return false;
+    const months = new Set(g.txs.map(monthKey));
+    if (months.size < 2) return false;
+
+    const amounts = g.txs.map(t => amtFn(t));
+    const sorted  = [...amounts].sort((a,b) => a-b);
+    const median  = sorted[Math.floor(sorted.length / 2)];
+    // All amounts must be within tolerance of the median
+    return amounts.every(a => Math.abs(a - median) / median * 100 <= tolerancePct);
+  }).map(g => {
+    const amounts = g.txs.map(t => amtFn(t));
+    const sorted  = [...amounts].sort((a,b) => a-b);
+    const median  = sorted[Math.floor(sorted.length / 2)];
+    return {
+      ...g,
+      median,
+      amtMin: sorted[0],
+      amtMax: sorted[sorted.length - 1],
+      varying: sorted[sorted.length-1] - sorted[0] > 0.005,
+    };
+  }).sort((a, b) => b.median - a.median);
+}
+
+function guessFrequency(txs) {
+  if (txs.length < 2) return { label: "Irregular", cls: "irregular" };
+  const dates = txs.map(t => parseDate(t.tx_date)).sort((a,b) => a-b);
+  const gaps = [];
+  for (let i = 1; i < dates.length; i++)
+    gaps.push((dates[i] - dates[i-1]) / 86400000);
+  const avg = gaps.reduce((s,g) => s+g, 0) / gaps.length;
+  if (avg <= 9)   return { label: "Weekly",    cls: "weekly" };
+  if (avg <= 18)  return { label: "Bi-weekly", cls: "biweekly" };
+  if (avg <= 45)  return { label: "Monthly",   cls: "monthly" };
+  if (avg <= 100) return { label: "Quarterly", cls: "irregular" };
+  return               { label: "Annual",    cls: "annual" };
+}
+
+const recurExpanded = new Set();
+function toggleRecur(prefix) {
+  const body    = document.getElementById(`${prefix}-recurBody`);
+  const chevron = document.getElementById(`${prefix}-recurChevron`);
+  const open    = body.style.display !== "none";
+  body.style.display = open ? "none" : "";
+  chevron.classList.toggle("open", !open);
+}
+
+function renderRecurring(prefix, groups, acctFilter) {
+  const card  = document.getElementById(`${prefix}-recurCard`);
+  const body  = document.getElementById(`${prefix}-recurBody`);
+  const badge = document.getElementById(`${prefix}-recurBadge`);
+
+  // Filter by active account (bank) if provided
+  let visible = groups;
+  if (acctFilter && acctFilter !== "__all__") {
+    visible = groups.filter(g => g.txs.some(t => t.account === acctFilter));
+  }
+
+  if (!visible.length) { card.style.display = "none"; return; }
+  const wasHidden = card.style.display === "none";
+  card.style.display = "";
+  if (wasHidden) {
+    body.style.display = "none";
+    document.getElementById(`${prefix}-recurChevron`).classList.remove("open");
+  }
+  badge.textContent  = visible.length;
+
+  body.innerHTML = "";
+  visible.forEach(g => {
+    // When filtered by account, only show txs for that account
+    const txs = (acctFilter && acctFilter !== "__all__")
+      ? g.txs.filter(t => t.account === acctFilter)
+      : g.txs;
+
+    const freq   = guessFrequency(txs);
+    const sorted = [...txs].sort((a,b) => parseDate(b.tx_date)-parseDate(a.tx_date));
+    const last   = sorted[0];
+    const first  = sorted[sorted.length - 1];
+    const gkey   = `${prefix}|||${g.name.toLowerCase()}`;
+    const isOpen = recurExpanded.has(gkey);
+
+    const lastDate  = parseDate(last.tx_date).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+    const firstDate = parseDate(first.tx_date).toLocaleDateString("en-US", {month:"short", year:"numeric"});
+
+    let nextChargeStr = "";
+    if (prefix === "cc" && txs.length >= 2) {
+      const ascDates = [...txs].sort((a,b) => parseDate(a.tx_date)-parseDate(b.tx_date)).map(t => parseDate(t.tx_date));
+      const gaps = [];
+      for (let i = 1; i < ascDates.length; i++) gaps.push(ascDates[i] - ascDates[i-1]);
+      const medGap = [...gaps].sort((a,b)=>a-b)[Math.floor(gaps.length/2)];
+      const next = new Date(ascDates[ascDates.length-1].getTime() + medGap);
+      nextChargeStr = next.toLocaleDateString("en-US", {month:"short", day:"numeric"});
+    }
+
+    const amtLabel  = g.varying
+      ? `~${fmtUSD(g.median)}`
+      : fmtUSD(g.median);
+    const rangeLabel = g.varying
+      ? `${fmtUSD(g.amtMin)} – ${fmtUSD(g.amtMax)}`
+      : "";
+
+    const wrapper = document.createElement("div");
+
+    const row = document.createElement("div");
+    row.className = "recur-row";
+    row.innerHTML = `
+      <div class="tx-dot" style="background:${g.color}"></div>
+      <div class="recur-info">
+        <div class="recur-name">${g.name}</div>
+        <div class="recur-sub">${txs.length}× · since ${firstDate} · last ${lastDate}${nextChargeStr ? ` · next ~${nextChargeStr}` : ""}</div>
+        ${rangeLabel ? `<div class="recur-amt-range">${rangeLabel}</div>` : ""}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="recur-freq ${freq.cls}">${freq.label}</span>
+        <div class="recur-amt">${amtLabel}</div>
+        <div class="merch-chevron${isOpen?" open":""}">▶</div>
+      </div>`;
+    row.onclick = () => {
+      if (recurExpanded.has(gkey)) recurExpanded.delete(gkey); else recurExpanded.add(gkey);
+      row.querySelector(".merch-chevron").classList.toggle("open");
+      childBody.classList.toggle("open");
+    };
+    wrapper.appendChild(row);
+
+    const childBody = document.createElement("div");
+    childBody.className = "merch-children" + (isOpen ? " open" : "");
+    sorted.forEach(t => {
+      const child = document.createElement("div");
+      child.className = "merch-child";
+      const amt = (prefix === "cc") ? t.amount : t.amount;
+      child.innerHTML = `
+        <div class="merch-child-date">${fmtDateHdr(t.tx_date)}</div>
+        <div class="merch-child-desc">${t.description || t.merchant || ""}${t.account ? ` · ···${t.account}` : ""}</div>
+        <div class="merch-child-amt">${fmtUSD(amt)}</div>`;
+      childBody.appendChild(child);
+    });
+    wrapper.appendChild(childBody);
+    body.appendChild(wrapper);
+  });
+}
+
+// ── CC merchant grouping ──────────────────────────────────────
+let ccSearch = "";
+let ccSort   = "date-desc";
+let ccFreqMerchant = null;
+let ccFreqMin = 12;
+let ccTxView = "date";
+const ccExpanded = new Set();
+
+const SORT_PRESETS = [
+  { key: "date-desc", label: "Date ↓" },
+  { key: "date-asc",  label: "Date ↑" },
+  { key: "amt-desc",  label: "Amt ↓"  },
+  { key: "amt-asc",   label: "Amt ↑"  },
+];
+
+function buildSortBtns(prefix, current, onChange) {
+  const wrap = document.getElementById(`${prefix}-sortBtns`);
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  SORT_PRESETS.forEach(({ key, label }) => {
+    const b = document.createElement("button");
+    b.className = "sort-btn" + (current === key ? " active" : "");
+    b.textContent = label;
+    b.onclick = () => onChange(key);
+    wrap.appendChild(b);
+  });
+}
+
+function applySearchSort(txs, searchTerm, sortKey, nameFn) {
+  let result = txs;
+  if (searchTerm.trim()) {
+    const q = searchTerm.trim().toLowerCase();
+    result = result.filter(t => (nameFn(t) || "").toLowerCase().includes(q));
+  }
+  switch (sortKey) {
+    case "date-asc":  return [...result].sort((a,b) => parseDate(a.tx_date)-parseDate(b.tx_date));
+    case "amt-desc":  return [...result].sort((a,b) => b.amount-a.amount);
+    case "amt-asc":   return [...result].sort((a,b) => a.amount-b.amount);
+    default:          return [...result].sort((a,b) => parseDate(b.tx_date)-parseDate(a.tx_date));
+  }
+}
+
+function ccSetView(v) {
+  ccTxView = v;
+  document.getElementById("cc-vbDate").classList.toggle("active", v==="date");
+  document.getElementById("cc-vbMerchant").classList.toggle("active", v==="merchant");
+  ccRenderTx();
+}
+
+function ccSetSort(s) { ccSort = s; buildSortBtns("cc", ccSort, ccSetSort); ccRenderTx(); }
+
+function ccRenderTxByMerchant(tx) {
+  const list = document.getElementById("cc-txList");
+  list.innerHTML = "";
+
+  const q = ccSearch.trim().toLowerCase();
+
+  // Group by normalized merchant name
+  const groups = {};
+  tx.forEach(t => {
+    const key = (t.merchant || t.description || "Unknown").trim().toLowerCase();
+    if (!groups[key]) groups[key] = { display: t.merchant || t.description, cat: t.category, txs: [] };
+    groups[key].txs.push(t);
+  });
+
+  // Sort by total descending, filter by search
+  let sorted = Object.entries(groups)
+    .map(([k, g]) => ({ key: k, ...g, total: g.txs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0) }))
+    .sort((a,b) => b.total - a.total);
+  if (q) sorted = sorted.filter(g => g.key.includes(q));
+
+  document.getElementById("cc-txCount").textContent = `${sorted.length} merchants · ${tx.length} transactions`;
+
+  sorted.forEach(({ key, display, cat, txs, total }) => {
+    const purchases = txs.filter(t => t.amount > 0);
+    const avg = purchases.length ? total / purchases.length : 0;
+    const isOpen = ccExpanded.has(key);
+
+    const wrapper = document.createElement("div");
+
+    // Header row
+    const hdr = document.createElement("div");
+    hdr.className = "merch-row";
+    hdr.innerHTML = `
+      <div class="tx-dot" style="background:${catColor(cat)}"></div>
+      <div class="merch-info">
+        <div class="merch-name">${display}</div>
+        <div class="merch-sub">${purchases.length} transaction${purchases.length!==1?"s":""} · avg ${fmtUSD(avg)}</div>
+      </div>
+      <div class="merch-total">${fmtUSD(total)}</div>
+      <div class="merch-chevron${isOpen?" open":""}">▶</div>`;
+    hdr.onclick = () => {
+      if (ccExpanded.has(key)) ccExpanded.delete(key); else ccExpanded.add(key);
+      const ch = wrapper.querySelector(".merch-chevron");
+      const body = wrapper.querySelector(".merch-children");
+      ch.classList.toggle("open");
+      body.classList.toggle("open");
+    };
+    wrapper.appendChild(hdr);
+
+    // Children (sorted by date desc)
+    const body = document.createElement("div");
+    body.className = "merch-children" + (isOpen ? " open" : "");
+    txs.sort((a,b) => parseDate(b.tx_date)-parseDate(a.tx_date)).forEach(t => {
+      const isCredit = t.amount <= 0;
+      const child = document.createElement("div");
+      child.className = "merch-child";
+      child.innerHTML = `
+        <div class="merch-child-date">${fmtDateHdr(t.tx_date)}</div>
+        <div class="merch-child-desc">${t.description || t.merchant}</div>
+        <div class="merch-child-amt ${isCredit?"credit":""}">${isCredit?"+":""}${fmtUSD(t.amount)}</div>`;
+      body.appendChild(child);
+    });
+    wrapper.appendChild(body);
+    list.appendChild(wrapper);
+  });
+}
+
+// ── Bank payee grouping ───────────────────────────────────────
+let bkSearch    = "";
+let bkSort      = "date-desc";
+let bkTxView    = "date";
+let bkFreqPayee = null; // active frequent-payee filter (description string or null)
+const bkExpanded = new Set();
+
+function bkSetView(v) {
+  bkTxView = v;
+  document.getElementById("bk-vbDate").classList.toggle("active", v==="date");
+  document.getElementById("bk-vbPayee").classList.toggle("active", v==="payee");
+  bkRenderTx();
+}
+
+function bkSetSort(s) { bkSort = s; buildSortBtns("bk", bkSort, bkSetSort); bkRenderTx(); }
+
+function bkRenderTxByPayee(tx) {
+  const list = document.getElementById("bk-txList");
+  list.innerHTML = "";
+
+  const q = bkSearch.trim().toLowerCase();
+
+  // Group by normalized description
+  const groups = {};
+  tx.forEach(t => {
+    const key = (t.description || "Unknown").trim().toLowerCase();
+    if (!groups[key]) groups[key] = { display: t.description, type: t.tx_type, txs: [] };
+    groups[key].txs.push(t);
+  });
+
+  // Sort by total desc, filter by search
+  let sorted = Object.entries(groups)
+    .map(([k, g]) => ({
+      key: k, ...g,
+      totalAmt: g.txs.reduce((s,t) => s + Math.abs(t.amount), 0),
+      isCredit: g.type === "Credit",
+    }))
+    .sort((a,b) => b.totalAmt - a.totalAmt);
+  if (q) sorted = sorted.filter(g => g.key.includes(q));
+
+  document.getElementById("bk-txCount").textContent = `${sorted.length} payees · ${tx.length} transactions`;
+
+  sorted.forEach(({ key, display, type, txs, totalAmt, isCredit }) => {
+    const avg = txs.length ? totalAmt / txs.length : 0;
+    const isOpen = bkExpanded.has(key);
+    const dot = isCredit ? "var(--pos)" : "var(--neg)";
+
+    const wrapper = document.createElement("div");
+
+    const hdr = document.createElement("div");
+    hdr.className = "merch-row";
+    hdr.innerHTML = `
+      <div class="tx-dot" style="background:${dot}"></div>
+      <div class="merch-info">
+        <div class="merch-name">${display}</div>
+        <div class="merch-sub">${txs.length} transaction${txs.length!==1?"s":""} · avg ${fmtUSD(avg)}</div>
+      </div>
+      <div class="merch-total ${isCredit?"credit":""}" style="color:${isCredit?"var(--pos)":"var(--text-2)"}">${isCredit?"+":"−"}${fmtUSD(totalAmt)}</div>
+      <div class="merch-chevron${isOpen?" open":""}">▶</div>`;
+    hdr.onclick = () => {
+      if (bkExpanded.has(key)) bkExpanded.delete(key); else bkExpanded.add(key);
+      wrapper.querySelector(".merch-chevron").classList.toggle("open");
+      wrapper.querySelector(".merch-children").classList.toggle("open");
+    };
+    wrapper.appendChild(hdr);
+
+    const body = document.createElement("div");
+    body.className = "merch-children" + (isOpen ? " open" : "");
+    txs.sort((a,b) => parseDate(b.tx_date)-parseDate(a.tx_date)).forEach(t => {
+      const child = document.createElement("div");
+      child.className = "merch-child";
+      child.innerHTML = `
+        <div class="merch-child-date">${fmtDateHdr(t.tx_date)}</div>
+        <div class="merch-child-desc">···${t.account}</div>
+        <div class="merch-child-amt ${isCredit?"credit":""}">${isCredit?"+":"−"}${fmtUSD(t.amount)}</div>`;
+      body.appendChild(child);
+    });
+    wrapper.appendChild(body);
+    list.appendChild(wrapper);
+  });
+}
+
+// ── Drag and drop (both tabs) ─────────────────────────────────
+document.body.addEventListener("dragover", e => e.preventDefault());
+document.body.addEventListener("drop", e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  if (currentTab === "cc") ccImport(f); else bkImport(f);
+});
+const ccZone = document.getElementById("cc-importZone");
+ccZone.addEventListener("dragover", e => { e.preventDefault(); ccZone.classList.add("drag-over"); });
+ccZone.addEventListener("dragleave", () => ccZone.classList.remove("drag-over"));
+ccZone.addEventListener("drop", e => { e.preventDefault(); ccZone.classList.remove("drag-over"); if(e.dataTransfer.files[0]) ccImport(e.dataTransfer.files[0]); });
+const bkZone = document.getElementById("bk-importZone");
+bkZone.addEventListener("dragover", e => { e.preventDefault(); bkZone.classList.add("drag-over"); });
+bkZone.addEventListener("dragleave", () => bkZone.classList.remove("drag-over"));
+bkZone.addEventListener("drop", e => { e.preventDefault(); bkZone.classList.remove("drag-over"); if(e.dataTransfer.files[0]) bkImport(e.dataTransfer.files[0]); });
+
+// ── Boot ──────────────────────────────────────────────────────
+updateTopbarButtons();
+Promise.all([ccLoad(), bkLoad()]);
+</script>
+</body>
+</html>

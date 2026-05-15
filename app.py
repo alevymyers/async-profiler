@@ -30,6 +30,7 @@ ACCOUNTS_FILE  = os.path.join(DATA_DIR, "accounts.json")
 TRADES_FILE    = os.path.join(DATA_DIR, "trades.json")
 LOANS_FILE     = os.path.join(DATA_DIR, "loans.json")
 KRAKEN_FILE    = os.path.join(DATA_DIR, "kraken.json")
+GRANTS_FILE    = os.path.join(DATA_DIR, "grants.json")
 
 os.makedirs(IMPORTS_DIR, exist_ok=True)
 
@@ -149,6 +150,8 @@ def load_loans():      return _load(LOANS_FILE, {"loans": []})
 def save_loans(d):     _save(LOANS_FILE, d)
 def load_kraken():     return _load(KRAKEN_FILE, {"transactions": [], "imports": []})
 def save_kraken(d):    _save(KRAKEN_FILE, d)
+def load_grants():     return _load(GRANTS_FILE, {"grants": []})
+def save_grants(d):    _save(GRANTS_FILE, d)
 
 
 # ── Main route ─────────────────────────────────────────────────────
@@ -385,6 +388,79 @@ def delete_loan(lid):
     db = load_loans()
     db["loans"] = [l for l in db["loans"] if l["id"] != lid]
     save_loans(db)
+    return "", 204
+
+
+# ── Grants (RSU / stock options) ────────────────────────────────────
+
+@app.route("/api/grants", methods=["GET"])
+def get_grants():
+    return jsonify(load_grants()["grants"])
+
+@app.route("/api/grants", methods=["POST"])
+def add_grant():
+    data   = request.json or {}
+    symbol = data.get("symbol", "").strip().upper()
+    grant_date = data.get("grant_date", "").strip()
+    if not symbol:
+        return jsonify({"error": "Symbol is required"}), 400
+    if not grant_date:
+        return jsonify({"error": "Grant date is required"}), 400
+    try:
+        grant_price          = float(data.get("grant_price", 0))
+        total_shares         = float(data.get("total_shares", 0))
+        vest_interval_months = int(data.get("vest_interval_months", 6))
+        vest_pct_per_period  = float(data.get("vest_pct_per_period", 12.5))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid number"}), 400
+
+    name = data.get("name", "").strip() or f"{symbol} RSU {grant_date[:4]}"
+    db   = load_grants()
+    grant = {
+        "id":                   str(uuid.uuid4()),
+        "name":                 name,
+        "symbol":               symbol,
+        "grant_date":           grant_date,
+        "grant_price":          grant_price,
+        "total_shares":         total_shares,
+        "vest_interval_months": vest_interval_months,
+        "vest_pct_per_period":  vest_pct_per_period,
+        "notes":                data.get("notes", "").strip(),
+        "created_at":           datetime.utcnow().isoformat(),
+    }
+    db["grants"].append(grant)
+    save_grants(db)
+    return jsonify(grant), 201
+
+@app.route("/api/grants/<gid>", methods=["PUT"])
+def update_grant(gid):
+    data = request.json or {}
+    db   = load_grants()
+    for g in db["grants"]:
+        if g["id"] == gid:
+            for k in ("name", "symbol", "grant_date", "notes"):
+                if k in data:
+                    g[k] = str(data[k]).strip()
+            if "symbol" in data:
+                g["symbol"] = g["symbol"].upper()
+            for k in ("grant_price", "total_shares", "vest_pct_per_period"):
+                if k in data:
+                    try:    g[k] = float(data[k])
+                    except: return jsonify({"error": f"Invalid {k}"}), 400
+            if "vest_interval_months" in data:
+                try:    g["vest_interval_months"] = int(data["vest_interval_months"])
+                except: return jsonify({"error": "Invalid vest_interval_months"}), 400
+            if not g.get("name"):
+                g["name"] = f"{g['symbol']} RSU {g['grant_date'][:4]}"
+            save_grants(db)
+            return jsonify(g)
+    return jsonify({"error": "Not found"}), 404
+
+@app.route("/api/grants/<gid>", methods=["DELETE"])
+def delete_grant(gid):
+    db = load_grants()
+    db["grants"] = [g for g in db["grants"] if g["id"] != gid]
+    save_grants(db)
     return "", 204
 
 
@@ -640,8 +716,80 @@ def _calc_performance(transactions):
         "total_realized_pnl": sum(v["realized_pnl"] for v in by_symbol.values()), # This is wrong, wait.
         "total_dividends":    dividends,
         "total_fees":         0.0,   # fees are baked into Schwab amounts
+        "sharpe_by_year":     _calc_sharpe_stats(closed_lots),
+        "sharpe_risk_free":   SHARPE_RISK_FREE_ANNUAL,
     }
 
+
+SHARPE_RISK_FREE_ANNUAL = 0.05  # 5% — adjust to match prevailing T-bill rate
+
+
+def _calc_sharpe_stats(closed_lots):
+    """
+    Monthly return series from settled (closed) lots only.
+    Monthly return = realized_pnl / cost_basis for all lots closed that month.
+    Annual Sharpe  = (mean_monthly_excess / std_monthly) * sqrt(12).
+    """
+    from collections import defaultdict
+    import statistics
+
+    monthly = defaultdict(lambda: {"pnl": 0.0, "cost": 0.0})
+    for lot in closed_lots:
+        if lot.get("orphan") or lot.get("cost_basis") is None or lot.get("realized_pnl") is None:
+            continue
+        cd = lot.get("close_date")
+        if not cd:
+            continue
+        ym = cd[:7]  # "YYYY-MM"
+        monthly[ym]["pnl"]  += lot["realized_pnl"]
+        monthly[ym]["cost"] += lot["cost_basis"]
+
+    # Only months where we actually had capital at work
+    monthly_returns = {ym: d["pnl"] / d["cost"]
+                       for ym, d in monthly.items() if d["cost"] > 0}
+
+    rfm = SHARPE_RISK_FREE_ANNUAL / 12  # monthly risk-free rate
+
+    def _stats(returns_list, ym_set):
+        if len(returns_list) < 2:
+            return None
+        mean_r   = sum(returns_list) / len(returns_list)
+        mean_ex  = sum(r - rfm for r in returns_list) / len(returns_list)
+        std_r    = statistics.stdev(returns_list)
+        sharpe   = (mean_ex / std_r) * (12 ** 0.5) if std_r > 1e-9 else 0.0
+        total_pnl  = sum(monthly[ym]["pnl"]  for ym in ym_set)
+        total_cost = sum(monthly[ym]["cost"] for ym in ym_set)
+        roc = (total_pnl / total_cost * 100) if total_cost > 0 else 0.0
+        return {
+            "sharpe":              round(sharpe, 3),
+            "return_on_capital":   round(roc, 2),
+            "mean_monthly_return": round(mean_r * 100, 4),
+            "std_monthly":         round(std_r * 100, 4),
+            "months":              len(returns_list),
+            "total_pnl":           round(total_pnl, 2),
+            "total_cost":          round(total_cost, 2),
+        }
+
+    # Group by year
+    by_year = defaultdict(list)
+    for ym, ret in monthly_returns.items():
+        by_year[ym[:4]].append(ym)
+
+    result = {}
+    for year in sorted(by_year.keys()):
+        ym_set   = set(by_year[year])
+        rets     = [monthly_returns[ym] for ym in sorted(ym_set)]
+        stats    = _stats(rets, ym_set)
+        if stats:
+            result[year] = stats
+
+    all_ym  = set(monthly_returns.keys())
+    all_ret = list(monthly_returns.values())
+    stats   = _stats(all_ret, all_ym)
+    if stats:
+        result["all"] = stats
+
+    return result
 
 
 # ── Trade history: routes ──────────────────────────────────────────
@@ -1346,6 +1494,8 @@ def schwab_positions():
                 "avg_price":      avg_px,
                 "market_value":   mkt_val,
                 "unrealized_pnl": unreal,
+                "strike_price":   float(inst["strikePrice"]) if inst.get("strikePrice") is not None else None,
+                "put_call":       inst.get("putCall", ""),
             })
 
         positions.sort(key=lambda p: p["market_value"], reverse=True)
@@ -1621,6 +1771,349 @@ def schwab_quotes():
             "market_cap": market_cap,
         }
     return jsonify(result)
+
+
+# ── Credit Card & Bank ─────────────────────────────────────────────
+
+APPLE_CARD_FILE = os.path.join(DATA_DIR, "apple_card.json")
+BANK_FILE       = os.path.join(DATA_DIR, "bank.json")
+
+
+def _load_apple_card():
+    if os.path.exists(APPLE_CARD_FILE):
+        with open(APPLE_CARD_FILE) as f:
+            d = json.load(f)
+            if "imports" not in d:
+                d["imports"] = []
+            return d
+    return {"transactions": [], "imports": []}
+
+
+def _save_apple_card(data):
+    with open(APPLE_CARD_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+@app.route("/apple-card")
+@app.route("/transactions")
+def apple_card_page():
+    return render_template("apple_card.html")
+
+
+@app.route("/api/apple-card/transactions")
+def apple_card_transactions():
+    return jsonify(_load_apple_card())
+
+
+def _detect_cc_format(headers):
+    h = {k.strip().lower() for k in headers}
+    if "amount (usd)" in h:
+        return "apple"
+    if "date" in h and "name" in h:
+        return "fidelity"
+    if "transaction date" in h and "post date" in h:
+        return "chase"
+    return "apple"  # default fallback
+
+
+def _parse_cc_row(row, fmt):
+    """Normalize a CSV row from any supported CC format into a common dict.
+    Returns None if the row should be skipped (e.g. payment rows)."""
+    if fmt == "fidelity":
+        tx_date    = row.get("Date", "")
+        merchant   = row.get("Name", "").strip()
+        amount_raw = row.get("Amount", "0")
+        # Fidelity: negative = purchase (debit), positive = payment (credit)
+        # Normalise to Apple convention: positive = purchase, negative = payment
+        try:
+            amount = -float(amount_raw.replace(",", "").replace("$", ""))
+        except ValueError:
+            amount = 0.0
+        tx_type = "Payment" if amount < 0 else "Purchase"
+        return dict(
+            tx_date=tx_date, clearing_date="",
+            description=merchant, merchant=merchant,
+            category="Other", type=tx_type,
+            amount=amount, purchaser="",
+        )
+    elif fmt == "chase":
+        tx_date    = row.get("Transaction Date", "")
+        clear_date = row.get("Post Date", "")
+        desc       = row.get("Description", "").strip()
+        category   = row.get("Category", "Other").strip() or "Other"
+        type_raw   = row.get("Type", "").strip().lower()
+        amount_raw = row.get("Amount", "0")
+        memo       = row.get("Memo", "").strip()
+        try:
+            # Chase: Sale is negative (charge), Payment is positive (credit)
+            # Negate so positive = charge, matching Apple Card convention
+            amount = -float(amount_raw.replace(",", "").replace("$", ""))
+        except ValueError:
+            amount = 0.0
+        tx_type = "Payment" if type_raw in ("payment", "credit", "return") else "Purchase"
+        merchant = desc
+        full_desc = f"{desc} — {memo}" if memo else desc
+        return dict(
+            tx_date=tx_date, clearing_date=clear_date,
+            description=full_desc, merchant=merchant,
+            category=category, type=tx_type,
+            amount=amount, purchaser="",
+        )
+    else:  # apple
+        tx_date    = row.get("Transaction Date", "")
+        clear_date = row.get("Clearing Date", "")
+        desc       = row.get("Description", "")
+        merchant   = row.get("Merchant", "") or desc
+        category   = row.get("Category", "Other")
+        tx_type    = row.get("Type", "Purchase")
+        amount_raw = row.get("Amount (USD)", "0")
+        purchaser  = row.get("Purchased By", "")
+        try:
+            amount = float(amount_raw.replace(",", "").replace("$", ""))
+        except ValueError:
+            amount = 0.0
+        return dict(
+            tx_date=tx_date, clearing_date=clear_date,
+            description=desc, merchant=merchant,
+            category=category, type=tx_type,
+            amount=amount, purchaser=purchaser,
+        )
+
+
+@app.route("/api/apple-card/imports/<import_id>", methods=["DELETE"])
+def apple_card_delete_import(import_id):
+    data = _load_apple_card()
+    target = next((i for i in data["imports"] if i["id"] == import_id), None)
+    if not target:
+        return jsonify({"error": "Not found"}), 404
+    before = len(data["transactions"])
+    data["transactions"] = [t for t in data["transactions"] if t.get("import_id") != import_id]
+    data["imports"] = [i for i in data["imports"] if i["id"] != import_id]
+    _save_apple_card(data)
+    return jsonify({"removed_transactions": before - len(data["transactions"])})
+
+
+@app.route("/api/apple-card/import", methods=["POST"])
+def apple_card_import():
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file"}), 400
+
+    filename = f.filename.replace("/", "_").replace("\\", "_")
+    card_name = request.form.get("card_name", "").strip()
+
+    content = f.read().decode("utf-8-sig")
+    reader = csv.DictReader(StringIO(content))
+    fmt = _detect_cc_format(reader.fieldnames or [])
+
+    if not card_name:
+        card_name = "Apple Card" if fmt == "apple" else ("Fidelity" if fmt == "fidelity" else "Credit Card")
+
+    import_id = str(uuid.uuid4())
+    data = _load_apple_card()
+    existing_hashes = {t["hash"] for t in data["transactions"]}
+
+    new_rows, dupes = [], 0
+    for row in reader:
+        row = {k.strip(): (v.strip() if v else "") for k, v in row.items()}
+        parsed = _parse_cc_row(row, fmt)
+        if parsed is None:
+            continue
+
+        h = hashlib.md5(f"{parsed['tx_date']}|{parsed['description']}|{parsed['amount']}".encode()).hexdigest()
+        if h in existing_hashes:
+            dupes += 1
+            continue
+
+        existing_hashes.add(h)
+        new_rows.append({
+            "hash":      h,
+            "id":        str(uuid.uuid4()),
+            "import_id": import_id,
+            "card_name": card_name,
+            "source":    fmt,
+            **parsed,
+        })
+
+    data["transactions"].extend(new_rows)
+    data["imports"].append({
+        "id":                   import_id,
+        "filename":             filename,
+        "card_name":            card_name,
+        "source":               fmt,
+        "imported_at":          datetime.utcnow().isoformat(),
+        "new_transactions":     len(new_rows),
+        "duplicate_transactions": dupes,
+    })
+    _save_apple_card(data)
+
+    return jsonify({"imported": len(new_rows), "duplicates": dupes, "total": len(data["transactions"]), "card_name": card_name})
+
+
+@app.route("/api/apple-card/clear", methods=["POST"])
+def apple_card_clear():
+    _save_apple_card({"transactions": [], "imports": []})
+    return jsonify({"ok": True})
+
+
+# ── Bank ────────────────────────────────────────────────────────────
+
+# Keywords that identify a credit-card payment (debit from bank to pay CC bill)
+_CC_PAYMENT_PATTERNS = re.compile(
+    r"(apple card|credit card|apple pay|card payment|autopay|online payment"
+    r"|echeck payment|payment thank you|minimum payment|balance payment)",
+    re.IGNORECASE,
+)
+
+
+def _load_bank():
+    if os.path.exists(BANK_FILE):
+        with open(BANK_FILE) as f:
+            d = json.load(f)
+            if "imports" not in d:
+                d["imports"] = []
+            return d
+    return {"transactions": [], "imports": []}
+
+
+def _save_bank(data):
+    with open(BANK_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+@app.route("/api/bank/transactions")
+def bank_transactions():
+    return jsonify(_load_bank())
+
+
+@app.route("/api/bank/imports/<import_id>", methods=["DELETE"])
+def bank_delete_import(import_id):
+    data = _load_bank()
+    target = next((i for i in data["imports"] if i["id"] == import_id), None)
+    if not target:
+        return jsonify({"error": "Not found"}), 404
+    before = len(data["transactions"])
+    data["transactions"] = [t for t in data["transactions"] if t.get("import_id") != import_id]
+    data["imports"] = [i for i in data["imports"] if i["id"] != import_id]
+    _save_bank(data)
+    return jsonify({"removed_transactions": before - len(data["transactions"])})
+
+
+@app.route("/api/bank/import", methods=["POST"])
+def bank_import():
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file"}), 400
+
+    filename = f.filename.replace("/", "_").replace("\\", "_")
+    account_name = request.form.get("account_name", "").strip() or "Bank Account"
+    import_id = str(uuid.uuid4())
+
+    content = f.read().decode("utf-8-sig")
+    reader = csv.DictReader(StringIO(content))
+
+    data = _load_bank()
+    existing_hashes = {t["hash"] for t in data["transactions"]}
+
+    def _pick(row, *keys, default=""):
+        for k in keys:
+            if row.get(k, "").strip():
+                return row[k].strip()
+        return default
+
+    def _parse_amount(raw):
+        try:
+            return float(raw.replace(",", "").replace("$", "").strip())
+        except (ValueError, AttributeError):
+            return 0.0
+
+    def _normalize_type(raw, amount):
+        """Return canonical 'Credit' or 'Debit'. Falls back to amount sign."""
+        t = raw.strip().lower()
+        if t in ("credit", "cr", "deposit", "dep", "incoming", "received"):
+            return "Credit"
+        if t in ("debit", "dr", "withdrawal", "wd", "wdl", "outgoing", "payment", "purchase"):
+            return "Debit"
+        # Infer from sign: positive = credit, negative = debit
+        return "Credit" if amount > 0 else "Debit"
+
+    new_rows, dupes, skipped_cc = [], 0, 0
+    for row in reader:
+        row = {k.strip(): (v.strip() if v else "") for k, v in row.items()}
+
+        acct_num = _pick(row, "Account Number", "Account #", "AccountNumber", "Acct", default="")
+        desc     = _pick(row, "Transaction Description", "Description", "Memo", "Payee", "Details", default="")
+        tx_date  = _pick(row, "Transaction Date", "Date", "Posting Date", "Post Date", default="")
+        balance  = _pick(row, "Balance", "Running Balance", "Ledger Balance", default="")
+
+        # Amount: try combined column first, then separate debit/credit columns
+        amt_raw = _pick(row, "Transaction Amount", "Amount", "Transaction Amount (USD)", default="")
+        if not amt_raw:
+            # Some CSVs split into Credit Amount / Debit Amount columns
+            credit_raw = _pick(row, "Credit Amount", "Credit", "Deposits", "Deposit Amount", default="")
+            debit_raw  = _pick(row, "Debit Amount",  "Debit",  "Withdrawals", "Withdrawal Amount", default="")
+            if credit_raw:
+                amt_raw = credit_raw
+            elif debit_raw:
+                amt_raw = "-" + debit_raw.lstrip("-")
+            else:
+                amt_raw = "0"
+
+        amount   = _parse_amount(amt_raw)
+        type_raw = _pick(row, "Transaction Type", "Type", "Transaction Type Code", "Tran Type", default="")
+        tx_type  = _normalize_type(type_raw, amount)
+
+        # Skip credit card payment rows
+        if _CC_PAYMENT_PATTERNS.search(desc):
+            skipped_cc += 1
+            continue
+
+        # Use absolute amount; tx_type carries the direction
+        amount = abs(amount)
+
+        h = hashlib.md5(f"{acct_num}|{tx_date}|{desc}|{amt_raw}".encode()).hexdigest()
+        if h in existing_hashes:
+            dupes += 1
+            continue
+
+        existing_hashes.add(h)
+        new_rows.append({
+            "hash":         h,
+            "id":           str(uuid.uuid4()),
+            "import_id":    import_id,
+            "account_name": account_name,
+            "account":      acct_num,
+            "description":  desc,
+            "tx_date":      tx_date,
+            "tx_type":      tx_type,
+            "amount":       amount,
+            "balance":      balance,
+        })
+
+    data["transactions"].extend(new_rows)
+    data["imports"].append({
+        "id":                   import_id,
+        "filename":             filename,
+        "account_name":         account_name,
+        "imported_at":          datetime.utcnow().isoformat(),
+        "new_transactions":     len(new_rows),
+        "duplicate_transactions": dupes,
+        "skipped_cc":           skipped_cc,
+    })
+    _save_bank(data)
+
+    return jsonify({
+        "imported":   len(new_rows),
+        "duplicates": dupes,
+        "skipped_cc": skipped_cc,
+        "total":      len(data["transactions"]),
+    })
+
+
+@app.route("/api/bank/clear", methods=["POST"])
+def bank_clear():
+    _save_bank({"transactions": [], "imports": []})
+    return jsonify({"ok": True})
 
 
 # ── Entry point ────────────────────────────────────────────────────

@@ -7,6 +7,9 @@ data/accounts.json
 data/trades.json
 data/loans.json
 data/kraken.json
+data/grants.json
+data/apple_card.json
+data/bank.json
 data/imports/
 __pycache__/
 *.pyc

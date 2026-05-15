@@ -304,10 +304,8 @@
       <button class="tab-btn"        id="tab-crypto"    onclick="setTab('crypto')">Crypto</button>
       <button class="tab-btn"        id="tab-accounts"  onclick="setTab('accounts')">Accounts</button>
       <button class="tab-btn"        id="tab-loans"     onclick="setTab('loans')">Loans</button>
-      <button class="tab-btn"        id="tab-kraken"    onclick="setTab('kraken')">Kraken</button>
-      <button class="tab-btn"        id="tab-history"   onclick="setTab('history')">History</button>
+      <button class="tab-btn"        id="tab-grants"    onclick="setTab('grants')">Grants</button>
       <button class="tab-btn"        id="tab-schwab"    onclick="setTab('schwab')">Schwab</button>
-      <button class="tab-btn"        id="tab-charts"    onclick="setTab('charts')">Charts</button>
     </div>
 
     <!-- Controls -->
@@ -319,6 +317,12 @@
         </svg>
         <span id="privLabel">Hide</span>
       </button>
+      <a href="/transactions" class="btn-ghost py-2 text-xs" style="text-decoration:none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+        </svg>
+        Transactions
+      </a>
       <button id="refreshBtn" onclick="refreshAll()" class="btn-ghost py-2 text-xs">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
@@ -333,10 +337,8 @@
     <button class="tab-btn"        id="mtab-crypto"   onclick="setTab('crypto')">Crypto</button>
     <button class="tab-btn"        id="mtab-accounts" onclick="setTab('accounts')">Accounts</button>
     <button class="tab-btn"        id="mtab-loans"    onclick="setTab('loans')">Loans</button>
-    <button class="tab-btn"        id="mtab-kraken"   onclick="setTab('kraken')">Kraken</button>
-    <button class="tab-btn"        id="mtab-history"  onclick="setTab('history')">History</button>
+    <button class="tab-btn"        id="mtab-grants"   onclick="setTab('grants')">Grants</button>
     <button class="tab-btn"        id="mtab-schwab"   onclick="setTab('schwab')">Schwab</button>
-    <button class="tab-btn"        id="mtab-charts"   onclick="setTab('charts')">Charts</button>
   </div>
 </header>
 
@@ -363,6 +365,10 @@
           <p class="text-slate-600 text-xs mb-1">Loans</p>
           <p id="ov-loans" class="font-bold text-lg" style="color:#f87171">$—</p>
         </div>
+        <div id="ov-grants-chip" class="stat-chip hidden">
+          <p class="text-slate-600 text-xs mb-1">Unvested Grants <span class="text-slate-700 font-normal">(not in NW)</span></p>
+          <p id="ov-grants" class="font-bold text-lg" style="color:#a78bfa">$—</p>
+        </div>
         <div id="ov-schwab-chip" class="stat-chip hidden">
           <p class="text-slate-600 text-xs mb-1">Schwab <span class="text-slate-700 font-normal">(live)</span></p>
           <p id="ov-schwab" class="text-white font-bold text-lg">$—</p>
@@ -384,34 +390,115 @@
       <div id="ov-breakdown-empty" class="hidden py-10 text-center text-slate-600 text-sm">Add crypto or accounts to see your breakdown.</div>
     </div>
 
+    <!-- Grants summary (not in net worth) -->
+    <div id="ov-grants-card" class="glass rounded-2xl overflow-hidden hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div>
+          <h2 class="font-semibold text-white text-sm">Stock Grants</h2>
+          <p class="text-slate-600 text-xs mt-0.5">Unvested equity — not included in net worth</p>
+        </div>
+        <button onclick="setTab('grants')" class="btn-ghost text-xs py-1.5">View all →</button>
+      </div>
+      <div id="ov-grants-rows" class="divide-y divide-white/5"></div>
+    </div>
+
   </div>
 
   <!-- ══ CRYPTO TAB ════════════════════════════════════════════ -->
   <div id="pane-crypto" class="hidden space-y-5 fade-in">
+
+    <!-- Sub-tab nav -->
     <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <h2 class="font-semibold text-white text-sm">Crypto Holdings</h2>
-        <button onclick="openCryptoModal()" class="btn-primary text-xs py-2">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Coin
-        </button>
-      </div>
-      <div id="crypto-table-wrap" class="overflow-x-auto"></div>
-      <div id="crypto-empty" class="hidden flex flex-col items-center py-16 text-center px-6">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-xl mb-3" style="background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.18)">₿</div>
-        <p class="text-slate-300 font-semibold mb-1">No holdings yet</p>
-        <p class="text-slate-600 text-sm mb-4">Add your first crypto coin to get started</p>
-        <button onclick="openCryptoModal()" class="btn-primary text-xs py-2">Add Coin</button>
-      </div>
-      <div id="crypto-loading" class="py-8 px-6 space-y-3">
-        <div class="skeleton h-9 rounded-lg"></div>
-        <div class="skeleton h-9 rounded-lg" style="opacity:.65"></div>
-        <div class="skeleton h-9 rounded-lg" style="opacity:.35"></div>
+      <div class="flex items-center justify-between px-6 py-3 border-b border-white/5">
+        <div class="tab-nav border-0 bg-transparent p-0">
+          <button id="csub-btn-holdings" class="tab-btn active text-xs py-1.5" onclick="setCryptoSubTab('holdings')">Holdings</button>
+          <button id="csub-btn-kraken"   class="tab-btn text-xs py-1.5"        onclick="setCryptoSubTab('kraken')">Kraken</button>
+        </div>
+        <div id="csub-actions-holdings">
+          <button onclick="openCryptoModal()" class="btn-primary text-xs py-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Coin
+          </button>
+        </div>
+        <div id="csub-actions-kraken" class="hidden">
+          <button onclick="openKrakenImportModal()" class="btn-primary text-xs py-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import CSV
+          </button>
+        </div>
       </div>
     </div>
-    <p class="text-slate-700 text-xs text-center">
-      Press <kbd class="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 font-mono text-xs">N</kbd> to add a coin · prices auto-refresh every 60s
-    </p>
+
+    <!-- Holdings sub-pane -->
+    <div id="csub-holdings" class="space-y-5">
+      <div class="glass rounded-2xl overflow-hidden">
+        <div id="crypto-table-wrap" class="overflow-x-auto"></div>
+        <div id="crypto-empty" class="hidden flex flex-col items-center py-16 text-center px-6">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-xl mb-3" style="background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.18)">₿</div>
+          <p class="text-slate-300 font-semibold mb-1">No holdings yet</p>
+          <p class="text-slate-600 text-sm mb-4">Add your first crypto coin to get started</p>
+          <button onclick="openCryptoModal()" class="btn-primary text-xs py-2">Add Coin</button>
+        </div>
+        <div id="crypto-loading" class="py-8 px-6 space-y-3">
+          <div class="skeleton h-9 rounded-lg"></div>
+          <div class="skeleton h-9 rounded-lg" style="opacity:.65"></div>
+          <div class="skeleton h-9 rounded-lg" style="opacity:.35"></div>
+        </div>
+      </div>
+      <p class="text-slate-700 text-xs text-center">
+        Press <kbd class="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 font-mono text-xs">N</kbd> to add a coin · prices auto-refresh every 60s
+      </p>
+    </div>
+
+    <!-- Kraken sub-pane -->
+    <div id="csub-kraken" class="hidden space-y-5">
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/5">
+          <h2 class="font-semibold text-white text-sm">Kraken Ledger Imports</h2>
+          <p class="text-slate-600 text-xs mt-0.5">Spot ledger CSV · re-importing deduplicates automatically</p>
+        </div>
+        <div id="kraken-imports-list"></div>
+        <div id="kraken-imports-empty" class="hidden py-8 text-center text-slate-600 text-sm">No files imported yet.</div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Performance Summary</p>
+        <div class="flex flex-wrap gap-3">
+          <div class="stat-chip">
+            <p class="text-slate-600 text-xs mb-1">Realized P&amp;L</p>
+            <p id="kr-pnl" class="font-bold text-xl">—</p>
+          </div>
+          <div class="stat-chip">
+            <p class="text-slate-600 text-xs mb-1">Unrealized P&amp;L</p>
+            <p id="kr-unreal" class="font-bold text-xl">—</p>
+          </div>
+          <div class="stat-chip">
+            <p class="text-slate-600 text-xs mb-1">Assets Tracked</p>
+            <p id="kr-assets-count" class="text-white font-bold text-xl">—</p>
+          </div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/5">
+          <h2 class="font-semibold text-white text-sm">By Asset</h2>
+        </div>
+        <div id="kr-perf-wrap" class="overflow-x-auto"></div>
+        <div id="kr-perf-empty" class="hidden py-10 text-center text-slate-600 text-sm">Import a Kraken ledger CSV to see performance.</div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-wrap gap-2">
+          <h2 class="font-semibold text-white text-sm">Transactions</h2>
+          <div class="flex items-center gap-2">
+            <select id="krAssetFilter" onchange="setKrakenAsset(this.value)" class="dark-input text-xs" style="width:auto;padding:6px 10px">
+              <option value="">All Assets</option>
+            </select>
+            <button id="krLoadMoreBtn" onclick="krakenLoadMore()" class="btn-ghost text-xs py-1.5 hidden">Load more</button>
+          </div>
+        </div>
+        <div id="kr-tx-wrap" class="overflow-x-auto"></div>
+        <div id="kr-tx-empty" class="hidden py-8 text-center text-slate-600 text-sm">No transactions yet.</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══ ACCOUNTS TAB ══════════════════════════════════════════ -->
@@ -443,7 +530,7 @@
           <h2 class="font-semibold text-white text-sm">Schwab — Live</h2>
           <p class="text-slate-600 text-xs mt-0.5">Live brokerage positions</p>
         </div>
-        <button onclick="setTab('schwab')" class="btn-ghost text-xs py-1.5">View Details →</button>
+        <button onclick="setTab('schwab');setSchwabSubTab('live')" class="btn-ghost text-xs py-1.5">View Details →</button>
       </div>
       <div id="acct-schwab-content" class="px-6 py-4"></div>
     </div>
@@ -472,251 +559,242 @@
     </div>
   </div>
 
-  <!-- ══ KRAKEN TAB ═══════════════════════════════════════════ -->
-  <div id="pane-kraken" class="hidden space-y-5 fade-in">
+  <!-- ══ GRANTS TAB ══════════════════════════════════════════ -->
+  <div id="pane-grants" class="hidden space-y-5 fade-in">
 
-    <!-- Import section -->
+    <!-- Sub-tab nav -->
     <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div>
-          <h2 class="font-semibold text-white text-sm">Kraken Ledger Imports</h2>
-          <p class="text-slate-600 text-xs mt-0.5">Spot ledger CSV · re-importing deduplicates automatically</p>
+      <div class="flex items-center justify-between px-6 py-3 border-b border-white/5">
+        <div class="tab-nav border-0 bg-transparent p-0">
+          <button id="gsub-btn-list"     class="tab-btn active text-xs py-1.5" onclick="setGrantsSubTab('list')">Grants</button>
+          <button id="gsub-btn-timeline" class="tab-btn text-xs py-1.5"        onclick="setGrantsSubTab('timeline')">Timeline</button>
         </div>
-        <button onclick="openKrakenImportModal()" class="btn-primary text-xs py-2">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Import CSV
+        <button onclick="openGrantModal()" class="btn-primary text-xs py-2">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Grant
         </button>
       </div>
-      <div id="kraken-imports-list"></div>
-      <div id="kraken-imports-empty" class="hidden py-8 text-center text-slate-600 text-sm">No files imported yet.</div>
     </div>
 
-    <!-- Performance summary -->
-    <div class="glass rounded-2xl p-6">
-      <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Performance Summary</p>
-      <div class="flex flex-wrap gap-3">
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Realized P&amp;L</p>
-          <p id="kr-pnl" class="font-bold text-xl">—</p>
+    <!-- ── List sub-tab ── -->
+    <div id="gsub-list">
+
+      <div id="grants-summary-card" class="glass rounded-2xl p-6 hidden">
+        <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Grants Summary</p>
+        <div class="flex flex-wrap gap-3" id="grants-summary-chips"></div>
+      </div>
+
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/5">
+          <h2 class="font-semibold text-white text-sm">Stock Grants</h2>
+          <p class="text-slate-600 text-xs mt-0.5">RSUs and equity awards · unvested balance shown in overview but not counted in net worth</p>
         </div>
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Unrealized P&amp;L</p>
-          <p id="kr-unreal" class="font-bold text-xl">—</p>
-        </div>
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Assets Tracked</p>
-          <p id="kr-assets-count" class="text-white font-bold text-xl">—</p>
+        <div id="grants-list" class="divide-y divide-white/5"></div>
+        <div id="grants-empty" class="hidden flex flex-col items-center py-16 text-center px-6">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-xl mb-3" style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2)">🏷</div>
+          <p class="text-slate-300 font-semibold mb-1">No grants tracked</p>
+          <p class="text-slate-600 text-sm mb-4">Add an RSU grant to track its vesting schedule</p>
+          <button onclick="openGrantModal()" class="btn-primary text-xs py-2">Add Grant</button>
         </div>
       </div>
+
     </div>
 
-    <!-- Per-asset performance table -->
-    <div class="glass rounded-2xl overflow-hidden">
-      <div class="px-6 py-4 border-b border-white/5">
-        <h2 class="font-semibold text-white text-sm">By Asset</h2>
-      </div>
-      <div id="kr-perf-wrap" class="overflow-x-auto"></div>
-      <div id="kr-perf-empty" class="hidden py-10 text-center text-slate-600 text-sm">Import a Kraken ledger CSV to see performance.</div>
-    </div>
+    <!-- ── Timeline sub-tab ── -->
+    <div id="gsub-timeline" class="hidden space-y-5">
 
-    <!-- Transactions -->
-    <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-wrap gap-2">
-        <h2 class="font-semibold text-white text-sm">Transactions</h2>
-        <div class="flex items-center gap-2">
-          <select id="krAssetFilter" onchange="setKrakenAsset(this.value)" class="dark-input text-xs" style="width:auto;padding:6px 10px">
-            <option value="">All Assets</option>
-          </select>
-          <button id="krLoadMoreBtn" onclick="krakenLoadMore()" class="btn-ghost text-xs py-1.5 hidden">Load more</button>
+      <div class="glass rounded-2xl p-6">
+        <p class="text-xs font-semibold uppercase tracking-widest mb-1" style="color:var(--text-3);letter-spacing:.1em">Vesting Timeline</p>
+        <p class="text-slate-600 text-xs mb-5">Value of shares at each vest event · past vests dimmed · hover for details</p>
+        <div style="position:relative;height:320px">
+          <canvas id="grants-timeline-chart"></canvas>
         </div>
       </div>
-      <div id="kr-tx-wrap" class="overflow-x-auto"></div>
-      <div id="kr-tx-empty" class="hidden py-8 text-center text-slate-600 text-sm">No transactions yet.</div>
+
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/5">
+          <h2 class="font-semibold text-white text-sm">Upcoming Vests</h2>
+        </div>
+        <div id="grants-upcoming-list" class="divide-y divide-white/5"></div>
+      </div>
+
     </div>
 
-  </div><!-- /pane-kraken -->
+  </div>
 
-  <!-- ══ HISTORY TAB ═══════════════════════════════════════════ -->
-  <div id="pane-history" class="hidden space-y-5 fade-in">
 
-    <!-- ① Import section — top so you can manage sources first -->
+  <!-- ══ SCHWAB TAB (History + Live + Charts) ═══════════════════ -->
+  <div id="pane-schwab" class="hidden space-y-5 fade-in">
+
+    <!-- Sub-tab nav -->
     <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div>
-          <h2 class="font-semibold text-white text-sm">Imported Files</h2>
-          <p class="text-slate-600 text-xs mt-0.5">Schwab exports · re-importing deduplicates automatically</p>
+      <div class="flex items-center justify-between px-6 py-3 border-b border-white/5 flex-wrap gap-2">
+        <div class="tab-nav border-0 bg-transparent p-0">
+          <button id="ssub-btn-history" class="tab-btn text-xs py-1.5"        onclick="setSchwabSubTab('history')">History</button>
+          <button id="ssub-btn-live"    class="tab-btn active text-xs py-1.5" onclick="setSchwabSubTab('live')">Live</button>
+          <button id="ssub-btn-charts"  class="tab-btn text-xs py-1.5"        onclick="setSchwabSubTab('charts')">Charts</button>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+        <!-- History actions -->
+        <div id="ssub-actions-history" class="hidden flex items-center gap-2 flex-wrap">
           <button onclick="openImportModal()" class="btn-primary text-xs py-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Upload CSV
           </button>
           <button onclick="fetchSchwabHistory()" id="schwab-fetch-history-btn" class="btn-ghost text-xs py-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Fetch from Schwab API
+            Fetch from Schwab
           </button>
-          <button onclick="deleteAllImports()" class="btn-ghost text-xs py-2 text-red-400 hover:text-red-300">
+          <button onclick="deleteAllImports()" class="btn-ghost text-xs py-2" style="color:#f87171;border-color:rgba(248,113,113,.2)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
             Delete All
           </button>
         </div>
-      </div>
-      <div id="imports-list"></div>
-      <div id="imports-empty" class="hidden py-8 text-center text-slate-600 text-sm">No files imported yet.</div>
-    </div>
-
-    <!-- ② Account selector — prominent pill row -->
-    <div id="acct-pills-wrap" class="glass rounded-2xl px-5 py-4 hidden">
-      <p class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">View by Account</p>
-      <div id="acct-pills" class="flex flex-wrap gap-2"></div>
-    </div>
-
-    <!-- ③ Performance summary -->
-    <div class="glass rounded-2xl p-6">
-      <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Performance Summary
-        <span id="hist-acct-label" class="normal-case font-normal text-slate-600 ml-1"></span>
-      </p>
-      <div class="flex flex-wrap gap-3">
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Realized P&amp;L</p>
-          <p id="hist-pnl" class="font-bold text-xl">—</p>
-        </div>
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Unrealized P&amp;L</p>
-          <p id="hist-unreal" class="font-bold text-xl">—</p>
-        </div>
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Dividends / Interest</p>
-          <p id="hist-div" class="text-white font-bold text-xl">—</p>
-        </div>
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Fees Paid</p>
-          <p id="hist-fees" class="text-slate-300 font-bold text-xl">—</p>
-        </div>
-        <div class="stat-chip">
-          <p class="text-slate-600 text-xs mb-1">Symbols Traded</p>
-          <p id="hist-symbols" class="text-white font-bold text-xl">—</p>
+        <!-- Live actions -->
+        <div id="ssub-actions-live" class="flex items-center gap-2 flex-wrap">
+          <button onclick="refreshSchwabPositions()" class="btn-ghost text-xs py-1.5">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            Refresh
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- ④ Per-symbol performance -->
-    <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-wrap gap-2">
-        <h2 class="font-semibold text-white text-sm">By Symbol</h2>
-        <select id="perfFilter" onchange="renderPerf()" class="dark-input text-xs" style="width:auto;padding:6px 10px">
-          <option value="all">All positions</option>
-          <option value="open">Open only</option>
-          <option value="closed">Closed only</option>
-          <option value="options">Options</option>
-        </select>
+    <!-- ── History sub-pane ── -->
+    <div id="ssub-history" class="hidden space-y-5">
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/5">
+          <h2 class="font-semibold text-white text-sm">Imported Files</h2>
+          <p class="text-slate-600 text-xs mt-0.5">Schwab exports · re-importing deduplicates automatically</p>
+        </div>
+        <div id="imports-list"></div>
+        <div id="imports-empty" class="hidden py-8 text-center text-slate-600 text-sm">No files imported yet.</div>
       </div>
-      <div id="perf-table-wrap" class="overflow-x-auto"></div>
-      <div id="perf-empty" class="hidden py-10 text-center text-slate-600 text-sm">Import a CSV to see your trade performance.</div>
-    </div>
-
-    <!-- ⑤ Recent transactions — own account filter -->
-    <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-wrap gap-2">
-        <h2 class="font-semibold text-white text-sm">Transactions</h2>
-        <div class="flex items-center gap-2">
-          <select id="txAcctFilter" onchange="setTxAccount(this.value)" class="dark-input text-xs" style="width:auto;padding:6px 10px">
-            <option value="">All Accounts</option>
+      <div id="acct-pills-wrap" class="glass rounded-2xl px-5 py-4 hidden">
+        <p class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">View by Account</p>
+        <div id="acct-pills" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div class="glass rounded-2xl p-6">
+        <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Performance Summary
+          <span id="hist-acct-label" class="normal-case font-normal text-slate-600 ml-1"></span>
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Realized P&amp;L</p><p id="hist-pnl" class="font-bold text-xl">—</p></div>
+          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Unrealized P&amp;L</p><p id="hist-unreal" class="font-bold text-xl">—</p></div>
+          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Dividends / Interest</p><p id="hist-div" class="text-white font-bold text-xl">—</p></div>
+          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Fees Paid</p><p id="hist-fees" class="text-slate-300 font-bold text-xl">—</p></div>
+          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Symbols Traded</p><p id="hist-symbols" class="text-white font-bold text-xl">—</p></div>
+        </div>
+      </div>
+      <div id="sharpe-card" class="glass rounded-2xl overflow-hidden hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
+          <div>
+            <h2 class="font-semibold text-white text-sm">Risk-Adjusted Returns — Sharpe Ratio</h2>
+            <p class="text-slate-600 text-xs mt-0.5">Settled trades only · monthly return = realized P&amp;L ÷ cost basis of lots closed that month · RoC = total P&amp;L ÷ total cost</p>
+          </div>
+        </div>
+        <div id="sharpe-table-wrap" class="overflow-x-auto"></div>
+        <div class="px-6 py-3 border-t border-white/5 text-slate-700 text-xs">
+          Risk-free rate: <span id="sharpe-rf-display">5.0%</span> annual (US T-bills) · Sharpe ≥ 1 green · 0–1 yellow · &lt; 0 red · requires ≥ 2 active months per year
+        </div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-wrap gap-2">
+          <h2 class="font-semibold text-white text-sm">By Symbol</h2>
+          <select id="perfFilter" onchange="renderPerf()" class="dark-input text-xs" style="width:auto;padding:6px 10px">
+            <option value="all">All positions</option>
+            <option value="open">Open only</option>
+            <option value="closed">Closed only</option>
+            <option value="options">Options</option>
           </select>
-          <button id="loadMoreBtn" onclick="loadMoreTx()" class="btn-ghost text-xs py-1.5 hidden">Load more</button>
         </div>
+        <div id="perf-table-wrap" class="overflow-x-auto"></div>
+        <div id="perf-empty" class="hidden py-10 text-center text-slate-600 text-sm">Import a CSV to see your trade performance.</div>
       </div>
-      <div id="tx-table-wrap" class="overflow-x-auto"></div>
-      <div id="tx-empty" class="hidden py-8 text-center text-slate-600 text-sm">No transactions imported yet.</div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 flex-wrap gap-2">
+          <h2 class="font-semibold text-white text-sm">Transactions</h2>
+          <div class="flex items-center gap-2">
+            <select id="txAcctFilter" onchange="setTxAccount(this.value)" class="dark-input text-xs" style="width:auto;padding:6px 10px">
+              <option value="">All Accounts</option>
+            </select>
+            <button id="loadMoreBtn" onclick="loadMoreTx()" class="btn-ghost text-xs py-1.5 hidden">Load more</button>
+          </div>
+        </div>
+        <div id="tx-table-wrap" class="overflow-x-auto"></div>
+        <div id="tx-empty" class="hidden py-8 text-center text-slate-600 text-sm">No transactions imported yet.</div>
+      </div>
     </div>
 
-  </div><!-- /pane-history -->
-
-  <!-- ══ SCHWAB TAB ═══════════════════════════════════════════ -->
-  <div id="pane-schwab" class="hidden space-y-5 fade-in">
-
-    <!-- Connection card -->
-    <div class="glass rounded-2xl p-6">
-      <!-- Loading -->
-      <div id="schwab-status-loading" class="flex items-center gap-3">
-        <span class="spinner"></span>
-        <span class="text-slate-500 text-sm">Checking Schwab connection…</span>
-      </div>
-      <!-- Not configured -->
-      <div id="schwab-not-configured" class="hidden">
-        <p class="text-white font-semibold mb-2">Schwab Not Configured</p>
-        <p class="text-slate-400 text-sm">Create <code class="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-slate-300 text-xs font-mono">data/schwab_config.json</code> with your credentials:</p>
-        <pre class="mt-3 text-xs bg-white/5 border border-white/8 rounded-xl p-4 text-slate-300 overflow-x-auto">{
+    <!-- ── Live sub-pane ── -->
+    <div id="ssub-live" class="space-y-5">
+      <div class="glass rounded-2xl p-6">
+        <div id="schwab-status-loading" class="flex items-center gap-3">
+          <span class="spinner"></span>
+          <span class="text-slate-500 text-sm">Checking Schwab connection…</span>
+        </div>
+        <div id="schwab-not-configured" class="hidden">
+          <p class="text-white font-semibold mb-2">Schwab Not Configured</p>
+          <p class="text-slate-400 text-sm">Create <code class="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-slate-300 text-xs font-mono">data/schwab_config.json</code> with your credentials:</p>
+          <pre class="mt-3 text-xs bg-white/5 border border-white/8 rounded-xl p-4 text-slate-300 overflow-x-auto">{
   "client_id": "YOUR_APP_KEY",
   "client_secret": "YOUR_SECRET_KEY"
 }</pre>
-        <p class="text-slate-600 text-xs mt-3">Then restart the app.</p>
-      </div>
-      <!-- Connected -->
-      <div id="schwab-connected-state" class="hidden">
-        <div class="flex items-center justify-between flex-wrap gap-3">
-          <div class="flex items-center gap-3">
-            <div class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></div>
-            <div>
-              <p class="text-white font-semibold text-sm">Connected to Schwab</p>
-              <p id="schwab-session-label" class="text-slate-600 text-xs mt-0.5"></p>
+          <p class="text-slate-600 text-xs mt-3">Then restart the app.</p>
+        </div>
+        <div id="schwab-connected-state" class="hidden">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></div>
+              <div>
+                <p class="text-white font-semibold text-sm">Connected to Schwab</p>
+                <p id="schwab-session-label" class="text-slate-600 text-xs mt-0.5"></p>
+              </div>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="schwabReconnect()" class="btn-ghost text-xs py-1.5">Reconnect</button>
+              <button onclick="schwabDisconnect()" class="btn-ghost text-xs py-1.5" style="color:#f87171;border-color:rgba(248,113,113,.2)">Disconnect</button>
             </div>
           </div>
-          <div class="flex gap-2 flex-wrap">
-            <button onclick="refreshSchwabPositions()" class="btn-ghost text-xs py-1.5">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
-              Refresh
+        </div>
+        <div id="schwab-disconnected-state" class="hidden">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p class="text-white font-semibold text-sm">Connect Your Schwab Account</p>
+              <p class="text-slate-500 text-sm mt-0.5">Authorize once to see live positions and live net worth.</p>
+            </div>
+            <button onclick="schwabConnect()" id="schwab-connect-btn" class="btn-primary text-xs py-2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              Connect Schwab
             </button>
-            <button onclick="schwabReconnect()" class="btn-ghost text-xs py-1.5">Reconnect</button>
-            <button onclick="schwabDisconnect()" class="btn-ghost text-xs py-1.5" style="color:#f87171;border-color:rgba(248,113,113,.2)">Disconnect</button>
           </div>
+          <p class="text-slate-600 text-xs mt-3">You'll be redirected to Schwab to authorize, then automatically brought back.</p>
         </div>
       </div>
-      <!-- Disconnected -->
-      <div id="schwab-disconnected-state" class="hidden">
-        <div class="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <p class="text-white font-semibold text-sm">Connect Your Schwab Account</p>
-            <p class="text-slate-500 text-sm mt-0.5">Authorize once to see live positions and live net worth.</p>
-          </div>
-          <button onclick="schwabConnect()" id="schwab-connect-btn" class="btn-primary text-xs py-2">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Connect Schwab
-          </button>
+      <div id="schwab-total-card" class="hidden glass rounded-2xl p-6" style="box-shadow:0 0 40px rgba(34,211,238,.06)">
+        <p class="text-xs font-semibold uppercase tracking-widest mb-2" style="color:var(--text-3);letter-spacing:.1em">Schwab Portfolio Value</p>
+        <div id="schwab-total-value" class="text-3xl font-black text-white mb-1">$—</div>
+        <p id="schwab-accounts-count" class="text-slate-600 text-xs"></p>
+      </div>
+      <div id="schwab-pos-loading" class="hidden glass rounded-2xl p-8">
+        <div class="flex items-center justify-center gap-3">
+          <span class="spinner"></span>
+          <span class="text-slate-500 text-sm">Fetching live positions from Schwab…</span>
         </div>
-        <p class="text-slate-600 text-xs mt-3">You'll be redirected to Schwab to authorize, then automatically brought back.</p>
+      </div>
+      <div id="schwab-positions-wrap" class="space-y-4 hidden"></div>
+    </div>
+
+    <!-- ── Charts sub-pane ── -->
+    <div id="ssub-charts" class="hidden space-y-8">
+      <div class="glass rounded-2xl p-6">
+        <h2 class="font-semibold text-white text-sm mb-1">Portfolio Allocation</h2>
+        <p class="text-slate-600 text-xs mb-6">Colorblind-friendly · percentages shown inline</p>
+        <div id="charts-grid" class="space-y-10"></div>
+        <div id="charts-empty" class="hidden py-16 text-center text-slate-600 text-sm">Add accounts or connect Schwab to see charts.</div>
       </div>
     </div>
-
-    <!-- Portfolio total card (shown when connected + positions loaded) -->
-    <div id="schwab-total-card" class="hidden glass rounded-2xl p-6" style="box-shadow:0 0 40px rgba(34,211,238,.06)">
-      <p class="text-xs font-semibold uppercase tracking-widest mb-2" style="color:var(--text-3);letter-spacing:.1em">Schwab Portfolio Value</p>
-      <div id="schwab-total-value" class="text-3xl font-black text-white mb-1">$—</div>
-      <p id="schwab-accounts-count" class="text-slate-600 text-xs"></p>
-    </div>
-
-    <!-- Positions loading -->
-    <div id="schwab-pos-loading" class="hidden glass rounded-2xl p-8">
-      <div class="flex items-center justify-center gap-3">
-        <span class="spinner"></span>
-        <span class="text-slate-500 text-sm">Fetching live positions from Schwab…</span>
-      </div>
-    </div>
-
-    <!-- Per-account position tables -->
-    <div id="schwab-positions-wrap" class="space-y-4 hidden"></div>
 
   </div><!-- /pane-schwab -->
-
-  <!-- ══ CHARTS TAB ═══════════════════════════════════════════ -->
-  <div id="pane-charts" class="hidden space-y-8 fade-in">
-    <div class="glass rounded-2xl p-6">
-      <h2 class="font-semibold text-white text-sm mb-1">Portfolio Allocation</h2>
-      <p class="text-slate-600 text-xs mb-6">Colorblind-friendly · percentages shown inline</p>
-      <div id="charts-grid" class="space-y-10"></div>
-      <div id="charts-empty" class="hidden py-16 text-center text-slate-600 text-sm">Add accounts or connect Schwab to see charts.</div>
-    </div>
-  </div><!-- /pane-charts -->
 
 </main>
 
@@ -864,6 +942,62 @@
   </div>
 </div>
 
+<!-- Add/Edit Grant -->
+<div id="grantModal" class="modal-overlay hidden" onclick="if(event.target===this)closeGrantModal()">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-5">
+      <h3 id="grantModalTitle" class="text-white font-bold text-lg">Add Grant</h3>
+      <button onclick="closeGrantModal()" class="text-slate-500 hover:text-slate-200 transition-colors">✕</button>
+    </div>
+    <input type="hidden" id="g-id" />
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Ticker Symbol *</label>
+          <input id="g-symbol" type="text" class="dark-input" placeholder="AAPL" style="text-transform:uppercase" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Grant Name</label>
+          <input id="g-name" type="text" class="dark-input" placeholder="Auto-generated" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Grant Date *</label>
+          <input id="g-date" type="date" class="dark-input" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Price at Grant ($) *</label>
+          <input id="g-grant-price" type="number" class="dark-input" placeholder="185.50" step="0.01" min="0" />
+        </div>
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Total Shares *</label>
+        <input id="g-shares" type="number" class="dark-input" placeholder="100" step="0.001" min="0" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Vest Interval (months)</label>
+          <input id="g-interval" type="number" class="dark-input" placeholder="6" min="1" max="60" step="1" value="6" />
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">% per Vest Period</label>
+          <input id="g-pct" type="number" class="dark-input" placeholder="12.5" step="0.01" min="0.01" max="100" value="12.5" />
+        </div>
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs font-semibold uppercase tracking-wide block mb-2">Notes <span class="normal-case font-normal text-slate-600">(optional)</span></label>
+        <input id="g-notes" type="text" class="dark-input" placeholder="Performance grant Q1 2024…" />
+      </div>
+      <div id="g-err" class="hidden text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="closeGrantModal()" class="btn-ghost flex-1 text-sm">Cancel</button>
+        <button id="g-submit" onclick="submitGrant()" class="btn-primary flex-1 text-sm justify-center">Save Grant</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Kraken Import CSV -->
 <div id="krakenImportModal" class="modal-overlay hidden" onclick="if(event.target===this)closeKrakenImportModal()">
   <div class="modal-box" style="max-width:480px">
@@ -986,6 +1120,13 @@ const S = {
   perfSortDir:     -1,    // -1 = desc, +1 = asc
   expandedSymbols: new Set(),
   editingImportId: null,
+  // Grants state
+  grants:          [],
+  grantPrices:     {},        // symbol → price
+  editGrantId:     null,
+  grantExpanded:   new Set(), // IDs with lot table open
+  grantsSubTab:    'list',    // 'list' | 'timeline'
+  grantsChart:     null,      // Chart.js instance
 };
 
 // ── Chart utilities ────────────────────────────────────────────
@@ -1185,6 +1326,13 @@ function fmtPnl(n){
   const cls =n>0?'pnl-pos':n<0?'pnl-neg':'pnl-zero';
   return {html:`${sign}${fmtUSD(n)}`,cls};
 }
+function fmtPnlExact(n){
+  if(S.privacy) return {html:'<span class="text-slate-400">••••••</span>',cls:''};
+  if(n==null)   return {html:'—',cls:'pnl-zero'};
+  const sign=n>=0?'+':'';
+  const cls =n>0?'pnl-pos':n<0?'pnl-neg':'pnl-zero';
+  return {html:`${sign}${fmtUSDExact(n)}`,cls};
+}
 function fmtMktCap(v){
   if(v == null || v <= 0) return '—';
   // v is raw dollars (sharesOutstanding × price)
@@ -1205,17 +1353,41 @@ function fmtDatetime(iso){
 
 // ── Tabs ───────────────────────────────────────────────────────
 function setTab(t){
+  // Redirect legacy tab references to consolidated sub-tabs
+  if(t==='kraken'){  setTab('crypto');  setCryptoSubTab('kraken');  return; }
+  if(t==='history'){ setTab('schwab'); setSchwabSubTab('history'); return; }
+  if(t==='charts'){  setTab('schwab'); setSchwabSubTab('charts');  return; }
   S.tab=t;
   localStorage.setItem('pt_tab',t);
-  ['overview','crypto','accounts','loans','kraken','history','schwab','charts'].forEach(id=>{
+  ['overview','crypto','accounts','loans','grants','schwab'].forEach(id=>{
     document.getElementById('pane-'+id)?.classList.toggle('hidden',id!==t);
     document.getElementById('tab-'+id)?.classList.toggle('active',id===t);
     document.getElementById('mtab-'+id)?.classList.toggle('active',id===t);
   });
-  if(t==='history') loadHistory();
-  if(t==='kraken')  loadKraken();
+  if(t!=='grants' && S.grantsChart){ S.grantsChart.destroy(); S.grantsChart=null; }
   if(t==='schwab' && S.schwabStatus===null) loadSchwabStatus();
-  if(t==='charts')  renderCharts();
+}
+
+function setSchwabSubTab(sub){
+  ['history','live','charts'].forEach(s=>{
+    document.getElementById('ssub-'+s)?.classList.toggle('hidden', s!==sub);
+    document.getElementById('ssub-btn-'+s)?.classList.toggle('active', s===sub);
+    document.getElementById('ssub-actions-'+s)?.classList.toggle('hidden', s!==sub);
+  });
+  if(sub==='history') loadHistory();
+  if(sub==='live' && S.schwabStatus===null) loadSchwabStatus();
+  if(sub==='charts') renderCharts();
+}
+
+function setCryptoSubTab(sub){
+  const isKraken = sub === 'kraken';
+  document.getElementById('csub-holdings')?.classList.toggle('hidden', isKraken);
+  document.getElementById('csub-kraken')?.classList.toggle('hidden', !isKraken);
+  document.getElementById('csub-actions-holdings')?.classList.toggle('hidden', isKraken);
+  document.getElementById('csub-actions-kraken')?.classList.toggle('hidden', !isKraken);
+  document.getElementById('csub-btn-holdings')?.classList.toggle('active', !isKraken);
+  document.getElementById('csub-btn-kraken')?.classList.toggle('active', isKraken);
+  if(isKraken) loadKraken();
 }
 
 // ── Privacy ────────────────────────────────────────────────────
@@ -1356,7 +1528,7 @@ async function refreshAll(){
   const btn=document.getElementById('refreshBtn');
   btn.disabled=true;
   btn.innerHTML='<span class="spinner"></span> Refreshing…';
-  const tasks=[loadHoldings(),loadAccounts(),loadLoans()];
+  const tasks=[loadHoldings(),loadAccounts(),loadLoans(),loadGrants()];
   if(S.schwabStatus?.connected) tasks.push(loadSchwabPositions());
   await Promise.all(tasks);
   await loadPrices();
@@ -1368,7 +1540,7 @@ async function refreshAll(){
 }
 
 // ── Render all ─────────────────────────────────────────────────
-function renderAll(){ renderOverview(); renderCrypto(); renderAccounts(); renderLoans(); renderSchwabPositions(); if(S.tab==='history') renderHistory(); }
+function renderAll(){ renderOverview(); renderCrypto(); renderAccounts(); renderLoans(); renderGrants(); renderSchwabPositions(); if(S.tab==='schwab' && !document.getElementById('ssub-history')?.classList.contains('hidden')) renderHistory(); }
 
 // ── Overview ───────────────────────────────────────────────────
 function renderOverview(){
@@ -1383,6 +1555,95 @@ function renderOverview(){
   document.getElementById('ov-crypto').textContent   = fmtUSD(cryptoTotal);
   document.getElementById('ov-accounts').textContent = fmtUSD(accountTotal);
   document.getElementById('ov-loans').textContent    = loansTotal > 0 ? '-'+fmtUSD(loansTotal) : fmtUSD(0);
+
+  // Grants chip + overview card (unvested, not in net worth)
+  const grantsChip = document.getElementById('ov-grants-chip');
+  const grantsCard = document.getElementById('ov-grants-card');
+  const grantsRows = document.getElementById('ov-grants-rows');
+  if(S.grants.length){
+    // Per-grant data
+    const grantData = S.grants.map(g=>{
+      const lots  = calcGrantLots(g);
+      const price = S.grantPrices[g.symbol] ?? null;
+      const vestedShares   = lots.filter(l=>l.vested).reduce((s,l)=>s+l.shares,0);
+      const unvestedShares = lots.filter(l=>!l.vested).reduce((s,l)=>s+l.shares,0);
+      const unvestedVal    = price!=null ? unvestedShares*price : null;
+      const nextLot        = lots.find(l=>!l.vested);
+      const vestedPct      = g.total_shares>0 ? vestedShares/g.total_shares*100 : 0;
+      return {g, lots, price, vestedShares, unvestedShares, unvestedVal, nextLot, vestedPct};
+    });
+
+    const unvestedTotal = grantData.reduce((s,d)=>s+(d.unvestedVal??0),0);
+
+    // Chip
+    if(grantsChip){
+      grantsChip.classList.remove('hidden');
+      document.getElementById('ov-grants').textContent = fmtUSD(unvestedTotal);
+    }
+
+    // Summary card
+    if(grantsCard && grantsRows){
+      grantsCard.classList.remove('hidden');
+
+      // Summary totals row
+      const allNext = grantData.flatMap(d=>d.nextLot?[{lot:d.nextLot,g:d.g,shares:d.nextLot.shares,price:d.price}]:[])
+        .sort((a,b)=>a.lot.vest_date-b.lot.vest_date);
+      const nextEvent = allNext[0];
+
+      let html = `<div class="px-6 py-4 flex flex-wrap gap-6">
+        <div>
+          <p class="text-slate-600 text-xs mb-0.5">Total unvested value</p>
+          <p class="font-bold text-lg" style="color:#a78bfa">${fmtUSD(unvestedTotal)}</p>
+        </div>
+        <div>
+          <p class="text-slate-600 text-xs mb-0.5">Grants</p>
+          <p class="text-white font-bold text-lg">${S.grants.length}</p>
+        </div>
+        ${nextEvent ? `<div>
+          <p class="text-slate-600 text-xs mb-0.5">Next vest</p>
+          <p class="text-white font-medium text-sm">${nextEvent.lot.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
+          <p class="text-slate-600 text-xs">${nextEvent.g.symbol} · ${fmtAmt(nextEvent.shares,false)} shares${nextEvent.price!=null?' · '+fmtUSD(nextEvent.shares*nextEvent.price):''}</p>
+        </div>` : ''}
+      </div><div class="border-t border-white/5">`;
+
+      // Per-grant rows
+      html += grantData.map(({g,unvestedShares,unvestedVal,nextLot,vestedPct})=>{
+        const daysToNext = nextLot ? Math.ceil((nextLot.vest_date-new Date())/86400000) : null;
+        const nextStr    = nextLot
+          ? nextLot.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+` (${daysToNext}d)`
+          : 'Fully vested';
+        return `<div class="px-6 py-4 flex items-center gap-4 flex-wrap hover:bg-white/[0.02] transition-colors">
+          <div class="flex items-center gap-2 min-w-[140px]">
+            <span class="acct-badge" style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)">${g.symbol}</span>
+            <span class="text-white text-sm font-medium truncate max-w-[120px]">${g.name}</span>
+          </div>
+          <div class="flex-1 min-w-[120px]">
+            <div class="flex justify-between text-xs text-slate-600 mb-1">
+              <span>${vestedPct.toFixed(0)}% vested</span>
+            </div>
+            <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)">
+              <div class="h-full rounded-full" style="width:${vestedPct}%;background:linear-gradient(90deg,#6366f1,#a78bfa)"></div>
+            </div>
+          </div>
+          <div class="text-right min-w-[90px]">
+            <p class="text-xs text-slate-600 mb-0.5">Unvested</p>
+            <p class="text-sm font-semibold" style="color:#a78bfa">${unvestedVal!=null?fmtUSD(unvestedVal):'—'}</p>
+            <p class="text-xs text-slate-600">${fmtAmt(unvestedShares,false)} sh</p>
+          </div>
+          <div class="text-right min-w-[120px]">
+            <p class="text-xs text-slate-600 mb-0.5">Next vest</p>
+            <p class="text-xs text-slate-400">${nextStr}</p>
+          </div>
+        </div>`;
+      }).join('<div class="border-t border-white/[0.04]"></div>');
+
+      html += '</div>';
+      grantsRows.innerHTML = html;
+    }
+  } else {
+    grantsChip?.classList.add('hidden');
+    grantsCard?.classList.add('hidden');
+  }
 
   // Schwab chip
   const schwabChip = document.getElementById('ov-schwab-chip');
@@ -1784,6 +2045,464 @@ async function deleteAcct(id,name){
   S.accounts=S.accounts.filter(a=>a.id!==id);
   renderAccounts(); renderOverview();
   await api.del(`/api/accounts/${id}`);
+}
+
+// ── Grants ─────────────────────────────────────────────────────
+
+async function loadGrants(){
+  S.grants = await api.get('/api/grants');
+  const symbols = [...new Set(S.grants.map(g=>g.symbol))];
+  if(!symbols.length) return;
+  S.grantPrices = {};
+
+  // Try Schwab quotes first (most accurate for equities)
+  if(S.schwabStatus?.connected){
+    try{
+      const raw = await api.get('/api/schwab/quotes?symbols='+encodeURIComponent(symbols.join(',')));
+      if(!raw.error){
+        for(const [sym, data] of Object.entries(raw)){
+          if(data.price != null) S.grantPrices[sym] = data.price;
+        }
+      }
+    }catch(e){}
+  }
+
+  // Fall back to yfinance for any symbols not resolved
+  const missing = symbols.filter(s=>S.grantPrices[s]==null);
+  if(missing.length){
+    try{
+      const res = await api.post('/api/prices', {symbols: missing});
+      for(const [sym, data] of Object.entries(res)){
+        if(data.price != null) S.grantPrices[sym] = data.price;
+      }
+    }catch(e){}
+  }
+}
+
+function calcGrantLots(grant){
+  const periods = Math.round(100 / grant.vest_pct_per_period);
+  const sharesPerLot = grant.total_shares / periods;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const lots = [];
+  for(let i=1; i<=periods; i++){
+    const vd = new Date(grant.grant_date + 'T00:00:00');
+    vd.setMonth(vd.getMonth() + i * grant.vest_interval_months);
+    lots.push({ period:i, vest_date:vd, shares:sharesPerLot, vested: vd <= today });
+  }
+  return lots;
+}
+
+function renderGrants(){
+  const list    = document.getElementById('grants-list');
+  const empty   = document.getElementById('grants-empty');
+  const sumCard = document.getElementById('grants-summary-card');
+  const sumChips= document.getElementById('grants-summary-chips');
+  if(!list) return;
+  if(!S.grants.length){
+    empty?.classList.remove('hidden');
+    list.innerHTML='';
+    sumCard?.classList.add('hidden');
+    return;
+  }
+  empty?.classList.add('hidden');
+
+  // Summary totals
+  if(sumCard && sumChips){
+    sumCard.classList.remove('hidden');
+    let totalVestedShares=0, totalUnvestedShares=0, totalVestedVal=0, totalUnvestedVal=0, totalGrantVal=0;
+    const nextVests=[];
+    for(const g of S.grants){
+      const lots  = calcGrantLots(g);
+      const price = S.grantPrices[g.symbol] ?? null;
+      const vs = lots.filter(l=>l.vested).reduce((s,l)=>s+l.shares,0);
+      const us = lots.filter(l=>!l.vested).reduce((s,l)=>s+l.shares,0);
+      totalVestedShares   += vs;
+      totalUnvestedShares += us;
+      if(price!=null){ totalVestedVal+=vs*price; totalUnvestedVal+=us*price; totalGrantVal+=(vs+us)*price; }
+      const next=lots.find(l=>!l.vested);
+      if(next) nextVests.push({date:next.vest_date,shares:next.shares,symbol:g.symbol,price});
+    }
+    nextVests.sort((a,b)=>a.date-b.date);
+    const next=nextVests[0];
+    const daysToNext=next?Math.ceil((next.date-new Date())/86400000):null;
+
+    const hasPrice = totalGrantVal>0;
+    sumChips.innerHTML=`
+      <div class="stat-chip">
+        <p class="text-slate-600 text-xs mb-1">Total Unvested</p>
+        <p class="font-bold text-xl" style="color:#a78bfa">${hasPrice?fmtUSD(totalUnvestedVal):'—'}</p>
+        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalUnvestedShares,false)} shares</p>
+      </div>
+      <div class="stat-chip">
+        <p class="text-slate-600 text-xs mb-1">Total Vested</p>
+        <p class="text-white font-bold text-xl">${hasPrice?fmtUSD(totalVestedVal):'—'}</p>
+        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalVestedShares,false)} shares</p>
+      </div>
+      <div class="stat-chip">
+        <p class="text-slate-600 text-xs mb-1">Total Grant Value</p>
+        <p class="text-white font-bold text-xl">${hasPrice?fmtUSD(totalGrantVal):'—'}</p>
+        <p class="text-slate-600 text-xs mt-0.5">${S.grants.length} grant${S.grants.length!==1?'s':''}</p>
+      </div>
+      ${next?`<div class="stat-chip">
+        <p class="text-slate-600 text-xs mb-1">Next Vest</p>
+        <p class="text-white font-bold text-xl">${next.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</p>
+        <p class="text-slate-600 text-xs mt-0.5">${next.symbol} · ${fmtAmt(next.shares,false)} sh · ${daysToNext}d away</p>
+      </div>`:''}`;
+  }
+
+  list.innerHTML = S.grants.map(g=>{
+    const lots        = calcGrantLots(g);
+    const price       = S.grantPrices[g.symbol] ?? null;
+    const vestedShares   = lots.filter(l=>l.vested).reduce((s,l)=>s+l.shares, 0);
+    const unvestedShares = lots.filter(l=>!l.vested).reduce((s,l)=>s+l.shares, 0);
+    const vestedPct   = g.total_shares > 0 ? vestedShares / g.total_shares * 100 : 0;
+    const unvestedVal = price != null ? unvestedShares * price : null;
+    const nextLot     = lots.find(l=>!l.vested);
+    const nextVestStr = nextLot
+      ? nextLot.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+      : 'Fully vested';
+    const daysToNext  = nextLot ? Math.ceil((nextLot.vest_date - new Date())/86400000) : null;
+
+    const lotRows = lots.map(l=>{
+      const vdStr = l.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const atGrant = fmtUSD(l.shares * g.grant_price);
+      const atCurrent = price != null ? fmtUSD(l.shares * price) : '—';
+      if(l.vested){
+        return `<tr class="border-t border-white/[0.04] opacity-40">
+          <td class="px-4 py-2 text-xs text-slate-500">${l.period}</td>
+          <td class="px-4 py-2 text-xs text-slate-500">${vdStr}</td>
+          <td class="px-4 py-2 text-xs text-right text-slate-500">${fmtAmt(l.shares,false)}</td>
+          <td class="px-4 py-2 text-xs text-center"><span class="text-emerald-500 text-xs font-medium">✓ Vested</span></td>
+          <td class="px-4 py-2 text-xs text-right text-slate-600">${atGrant}</td>
+          <td class="px-4 py-2 text-xs text-right text-slate-600">—</td>
+        </tr>`;
+      } else {
+        const daysStr = Math.ceil((l.vest_date - new Date())/86400000);
+        return `<tr class="border-t border-white/[0.04] hover:bg-white/[0.02]">
+          <td class="px-4 py-2 text-xs text-slate-400">${l.period}</td>
+          <td class="px-4 py-2 text-xs text-slate-300">${vdStr} <span class="text-slate-600 ml-1">${daysStr}d</span></td>
+          <td class="px-4 py-2 text-xs text-right text-slate-300">${fmtAmt(l.shares,false)}</td>
+          <td class="px-4 py-2 text-xs text-center"><span class="text-slate-500 text-xs">○ Unvested</span></td>
+          <td class="px-4 py-2 text-xs text-right text-slate-500">${atGrant}</td>
+          <td class="px-4 py-2 text-xs text-right" style="color:#a78bfa">${price!=null?atCurrent:'—'}</td>
+        </tr>`;
+      }
+    }).join('');
+
+    const nameEsc = g.name.replace(/'/g,"\\'");
+    const isExp   = S.grantExpanded.has(g.id);
+    const chevron = isExp
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>'
+      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>';
+
+    return `<div class="px-6 py-5">
+      <div class="flex items-start justify-between mb-3 flex-wrap gap-2">
+        <button onclick="toggleGrant('${g.id}')" class="flex items-start gap-2 text-left group flex-1 min-w-0">
+          <span class="mt-0.5 text-slate-500 group-hover:text-slate-300 transition-colors flex-shrink-0">${chevron}</span>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-white text-sm">${g.name}</span>
+              <span class="acct-badge" style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)">${g.symbol}</span>
+              ${g.notes?`<span class="text-slate-600 text-xs">${g.notes}</span>`:''}
+            </div>
+            <div class="text-slate-600 text-xs mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
+              <span>Granted ${new Date(g.grant_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+              <span>Grant price: ${fmtUSD(g.grant_price)}/sh</span>
+              <span>Total: ${fmtAmt(g.total_shares,false)} shares</span>
+              <span>Schedule: ${g.vest_pct_per_period}% every ${g.vest_interval_months}mo</span>
+            </div>
+          </div>
+        </button>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <button class="act-btn edit" onclick="editGrant('${g.id}')" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="act-btn delete" onclick="deleteGrant('${g.id}','${nameEsc}')" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-4 mb-3 text-sm">
+        <div>
+          <div class="text-slate-600 text-xs mb-0.5">Current price</div>
+          <div class="text-white font-medium">${price!=null?fmtUSD(price)+'/sh':'Loading…'}</div>
+        </div>
+        <div>
+          <div class="text-slate-600 text-xs mb-0.5">Unvested shares</div>
+          <div class="text-white font-medium">${fmtAmt(unvestedShares,false)} <span class="text-slate-600 text-xs">of ${fmtAmt(g.total_shares,false)}</span></div>
+        </div>
+        <div>
+          <div class="text-slate-600 text-xs mb-0.5">Unvested value</div>
+          <div class="font-semibold" style="color:#a78bfa">${unvestedVal!=null?fmtUSD(unvestedVal):'—'}</div>
+        </div>
+        <div>
+          <div class="text-slate-600 text-xs mb-0.5">Next vest</div>
+          <div class="text-slate-300 text-sm">${nextVestStr}${daysToNext!=null?` <span class="text-slate-600 text-xs">(${daysToNext}d)</span>`:''}
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-${isExp?'4':'0'}">
+        <div class="flex justify-between text-xs text-slate-600 mb-1">
+          <span>${vestedPct.toFixed(1)}% vested</span>
+          <span>${(100-vestedPct).toFixed(1)}% remaining</span>
+        </div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.06)">
+          <div class="h-full rounded-full" style="width:${vestedPct}%;background:linear-gradient(90deg,#6366f1,#a78bfa)"></div>
+        </div>
+      </div>
+
+      ${isExp ? `<div class="overflow-x-auto rounded-xl mt-4" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)">
+        <table class="w-full">
+          <thead><tr class="border-b border-white/5 text-slate-700 text-xs">
+            <th class="px-4 py-2 text-left font-semibold uppercase tracking-wider">#</th>
+            <th class="px-4 py-2 text-left font-semibold uppercase tracking-wider">Vest Date</th>
+            <th class="px-4 py-2 text-right font-semibold uppercase tracking-wider">Shares</th>
+            <th class="px-4 py-2 text-center font-semibold uppercase tracking-wider">Status</th>
+            <th class="px-4 py-2 text-right font-semibold uppercase tracking-wider">At Grant</th>
+            <th class="px-4 py-2 text-right font-semibold uppercase tracking-wider">Current Value</th>
+          </tr></thead>
+          <tbody>${lotRows}</tbody>
+        </table>
+      </div>` : ''}
+    </div>`;
+  }).join('<div class="border-t border-white/5"></div>');
+}
+
+function toggleGrant(id){
+  if(S.grantExpanded.has(id)) S.grantExpanded.delete(id);
+  else S.grantExpanded.add(id);
+  renderGrants();
+}
+
+function setGrantsSubTab(tab){
+  S.grantsSubTab = tab;
+  document.getElementById('gsub-list')?.classList.toggle('hidden', tab !== 'list');
+  document.getElementById('gsub-timeline')?.classList.toggle('hidden', tab !== 'timeline');
+  document.getElementById('gsub-btn-list')?.classList.toggle('active', tab === 'list');
+  document.getElementById('gsub-btn-timeline')?.classList.toggle('active', tab === 'timeline');
+  if(tab === 'timeline') renderGrantsTimeline();
+}
+
+function renderGrantsTimeline(){
+  if(!S.grants.length) return;
+
+  // Use local-time date string to avoid UTC timezone shifts
+  const localDateStr = d => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // Collect all lots across all grants, sorted by date
+  const today = new Date(); today.setHours(0,0,0,0);
+  const palette = ['#a78bfa','#60a5fa','#34d399','#fbbf24','#f87171','#e879f9','#38bdf8','#4ade80'];
+  const allLots = [];
+  S.grants.forEach((g, gi) => {
+    const lots  = calcGrantLots(g);
+    const price = S.grantPrices[g.symbol] ?? null;
+    const color = palette[gi % palette.length];
+    lots.forEach(l => allLots.push({ ...l, grant: g, price, color, gi }));
+  });
+  allLots.sort((a, b) => a.vest_date - b.vest_date);
+
+  // Build unique date labels using local date strings (no UTC shift)
+  const dateLabels = [...new Set(allLots.map(l => localDateStr(l.vest_date)))];
+  const datasets = S.grants.map((g, gi) => {
+    const price = S.grantPrices[g.symbol] ?? null;
+    const color = palette[gi % palette.length];
+    const data  = dateLabels.map(dl => {
+      const lot = allLots.find(l => l.gi === gi && localDateStr(l.vest_date) === dl);
+      if(!lot) return null;
+      return price != null ? parseFloat((lot.shares * price).toFixed(2)) : lot.shares;
+    });
+    return {
+      label:           g.name,
+      data,
+      backgroundColor: dateLabels.map(dl => {
+        const vd = new Date(dl + 'T00:00:00');
+        return vd <= today ? color + '40' : color + 'cc';
+      }),
+      borderColor:     dateLabels.map(dl => {
+        const vd = new Date(dl + 'T00:00:00');
+        return vd <= today ? color + '60' : color;
+      }),
+      borderWidth: 1.5,
+      borderRadius: 4,
+    };
+  });
+
+  // Format x-axis labels as "Jun 15" — include day so same-month events are distinct
+  const xLabels = dateLabels.map(dl => {
+    const d = new Date(dl + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+
+  const isPriceAvail = Object.keys(S.grantPrices).length > 0;
+  const yLabel = isPriceAvail ? 'Vest Value ($)' : 'Shares Vesting';
+
+  // Destroy previous chart instance
+  if(S.grantsChart) { S.grantsChart.destroy(); S.grantsChart = null; }
+
+  const ctx = document.getElementById('grants-timeline-chart');
+  if(!ctx) return;
+
+  S.grantsChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: xLabels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: S.grants.length > 1,
+          labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 },
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15,23,42,0.95)',
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          callbacks: {
+            title: items => {
+              const dl = dateLabels[items[0].dataIndex];
+              const vd = new Date(dl + 'T00:00:00');
+              const past = vd <= today;
+              return vd.toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'}) + (past ? ' (vested)' : '');
+            },
+            label: item => {
+              if(item.raw == null) return null;
+              const g    = S.grants[item.datasetIndex];
+              const dl   = dateLabels[item.dataIndex];
+              const lot  = allLots.find(l => l.gi === item.datasetIndex && localDateStr(l.vest_date) === dl);
+              if(!lot) return null;
+              const price = S.grantPrices[g.symbol] ?? null;
+              const valStr = price != null ? ` = $${item.raw.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '';
+              return ` ${g.symbol}: ${lot.shares.toLocaleString('en-US',{maximumFractionDigits:4})} shares${valStr}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid:  { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#64748b', font: { size: 11 } },
+        },
+        y: {
+          stacked: true,
+          grid:  { color: 'rgba(255,255,255,0.04)' },
+          ticks: {
+            color: '#64748b',
+            font:  { size: 11 },
+            callback: v => isPriceAvail ? '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0)) : v,
+          },
+          title: { display: true, text: yLabel, color: '#475569', font: { size: 11 } },
+        },
+      },
+    },
+  });
+
+  // Upcoming vests list
+  const upcomingEl = document.getElementById('grants-upcoming-list');
+  if(upcomingEl){
+    const future = allLots.filter(l => !l.vested).slice(0, 12);
+    if(!future.length){ upcomingEl.innerHTML='<p class="px-6 py-6 text-center text-slate-600 text-sm">All shares fully vested.</p>'; }
+    else {
+      upcomingEl.innerHTML = future.map(l => {
+        const days = Math.ceil((l.vest_date - today) / 86400000);
+        const val  = l.price != null ? `<span class="font-semibold" style="color:#a78bfa">$${(l.shares * l.price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>` : '—';
+        return `<div class="flex items-center justify-between px-6 py-3 hover:bg-white/[0.02]">
+          <div class="flex items-center gap-3">
+            <div class="text-center min-w-[48px]">
+              <div class="text-white font-bold text-sm">${l.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+              <div class="text-slate-600 text-xs">${l.vest_date.getFullYear()}</div>
+            </div>
+            <div>
+              <span class="acct-badge" style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)">${l.grant.symbol}</span>
+              <span class="text-slate-500 text-xs ml-2">${l.grant.name}</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div>${val}</div>
+            <div class="text-slate-600 text-xs">${l.shares.toLocaleString('en-US',{maximumFractionDigits:4})} sh · ${days}d</div>
+          </div>
+        </div>`;
+      }).join('<div class="border-t border-white/[0.04]"></div>');
+    }
+  }
+}
+
+function openGrantModal(){
+  S.editGrantId = null;
+  document.getElementById('grantModalTitle').textContent = 'Add Grant';
+  document.getElementById('g-submit').textContent = 'Save Grant';
+  ['g-id','g-name','g-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('g-symbol').value = '';
+  document.getElementById('g-date').value   = '';
+  document.getElementById('g-grant-price').value = '';
+  document.getElementById('g-shares').value  = '';
+  document.getElementById('g-interval').value = '6';
+  document.getElementById('g-pct').value      = '12.5';
+  document.getElementById('g-err').classList.add('hidden');
+  document.getElementById('grantModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('g-symbol').focus(), 60);
+}
+function editGrant(id){
+  const g = S.grants.find(x=>x.id===id); if(!g) return;
+  S.editGrantId = id;
+  document.getElementById('grantModalTitle').textContent = 'Edit Grant';
+  document.getElementById('g-submit').textContent = 'Save Changes';
+  document.getElementById('g-id').value           = id;
+  document.getElementById('g-name').value         = g.name;
+  document.getElementById('g-symbol').value       = g.symbol;
+  document.getElementById('g-date').value         = g.grant_date;
+  document.getElementById('g-grant-price').value  = g.grant_price;
+  document.getElementById('g-shares').value       = g.total_shares;
+  document.getElementById('g-interval').value     = g.vest_interval_months;
+  document.getElementById('g-pct').value          = g.vest_pct_per_period;
+  document.getElementById('g-notes').value        = g.notes||'';
+  document.getElementById('g-err').classList.add('hidden');
+  document.getElementById('grantModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('g-shares').focus(), 60);
+}
+function closeGrantModal(){ document.getElementById('grantModal').classList.add('hidden'); S.editGrantId=null; }
+function showGrantErr(m){ const e=document.getElementById('g-err'); e.textContent=m; e.classList.remove('hidden'); document.getElementById('g-submit').disabled=false; document.getElementById('g-submit').textContent='Save Grant'; }
+async function submitGrant(){
+  const symbol    = document.getElementById('g-symbol').value.trim().toUpperCase();
+  const name      = document.getElementById('g-name').value.trim();
+  const grantDate = document.getElementById('g-date').value;
+  const grantPrice= parseFloat(document.getElementById('g-grant-price').value);
+  const shares    = parseFloat(document.getElementById('g-shares').value);
+  const interval  = parseInt(document.getElementById('g-interval').value);
+  const pct       = parseFloat(document.getElementById('g-pct').value);
+  const notes     = document.getElementById('g-notes').value.trim();
+  const btn       = document.getElementById('g-submit');
+  document.getElementById('g-err').classList.add('hidden');
+  if(!symbol)              { showGrantErr('Symbol is required'); return; }
+  if(!grantDate)           { showGrantErr('Grant date is required'); return; }
+  if(isNaN(grantPrice)||grantPrice<0){ showGrantErr('Enter a valid grant price'); return; }
+  if(isNaN(shares)||shares<=0)       { showGrantErr('Enter total shares > 0'); return; }
+  if(isNaN(pct)||pct<=0||pct>100)    { showGrantErr('Vest % must be 0–100'); return; }
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Saving…';
+  try{
+    const payload={symbol,name,grant_date:grantDate,grant_price:grantPrice,total_shares:shares,vest_interval_months:interval,vest_pct_per_period:pct,notes};
+    let d;
+    if(S.editGrantId) d=await api.put(`/api/grants/${S.editGrantId}`,payload);
+    else              d=await api.post('/api/grants',payload);
+    if(d.error){ showGrantErr(d.error); return; }
+    closeGrantModal();
+    await loadGrants();
+    renderGrants(); renderOverview();
+    toast(S.editGrantId?'Grant updated':'Grant added','ok');
+  }catch(e){ showGrantErr('Failed: '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Save Grant'; }
+}
+async function deleteGrant(id, name){
+  if(!confirm(`Remove grant "${name}"?`)) return;
+  S.grants = S.grants.filter(g=>g.id!==id);
+  renderGrants(); renderOverview();
+  await api.del(`/api/grants/${id}`);
 }
 
 // ── Loans ──────────────────────────────────────────────────────
@@ -2337,9 +3056,60 @@ async function submitKrakenImport(){
 // ── History / performance ──────────────────────────────────────
 function renderHistory(){
   renderPerfSummary();
+  renderSharpe();
   renderPerf();
   renderImports();
   renderTx();
+}
+
+function renderSharpe(){
+  const card = document.getElementById('sharpe-card');
+  const wrap = document.getElementById('sharpe-table-wrap');
+  if(!card || !wrap) return;
+  const sharpe = S.perf?.sharpe_by_year;
+  if(!sharpe || !Object.keys(sharpe).length){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  const rf = S.perf?.sharpe_risk_free ?? 0.05;
+  const rfEl = document.getElementById('sharpe-rf-display');
+  if(rfEl) rfEl.textContent = (rf*100).toFixed(1)+'%';
+
+  const years = Object.keys(sharpe).filter(y=>y!=='all').sort();
+  const rows = [...years, ...(sharpe.all?['all']:[])].map(y=>{
+    const d = sharpe[y];
+    const isAll = y==='all';
+    const sharpeColor = d.sharpe>=1?'#4ade80':d.sharpe>=0?'#fbbf24':'#f87171';
+    const retColor = d.return_on_capital>=0?'#4ade80':'#f87171';
+    const retSign = d.return_on_capital>=0?'+':'';
+    const rowCls = isAll
+      ? 'border-t-2 border-white/10 bg-white/[0.02]'
+      : 'border-t border-white/5 hover:bg-white/[0.02]';
+    const label = isAll?'All Years':y;
+    const labelCls = isAll?'text-white font-semibold':'text-slate-300';
+    const {html:pnlHtml} = fmtPnl(d.total_pnl);
+    return `<tr class="${rowCls}">
+      <td class="px-5 py-3 text-sm ${labelCls}">${label}</td>
+      <td class="px-5 py-3 text-right">
+        <span class="font-bold text-lg" style="color:${sharpeColor}">${d.sharpe.toFixed(2)}</span>
+      </td>
+      <td class="px-5 py-3 text-right font-medium" style="color:${retColor}">${retSign}${d.return_on_capital.toFixed(1)}%</td>
+      <td class="px-5 py-3 text-right text-slate-400 text-sm">${d.std_monthly.toFixed(2)}%<span class="text-slate-700 text-xs">/mo</span></td>
+      <td class="px-5 py-3 text-right text-slate-500 text-xs">${d.months}</td>
+      <td class="px-5 py-3 text-right text-sm">${pnlHtml}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML=`<table class="w-full">
+    <thead><tr class="border-b border-white/5 text-slate-600 text-xs">
+      <th class="px-5 py-3 text-left font-semibold uppercase tracking-wider">Year</th>
+      <th class="px-5 py-3 text-right font-semibold uppercase tracking-wider">Sharpe</th>
+      <th class="px-5 py-3 text-right font-semibold uppercase tracking-wider">Return on Capital</th>
+      <th class="px-5 py-3 text-right font-semibold uppercase tracking-wider">Monthly Std Dev</th>
+      <th class="px-5 py-3 text-right font-semibold uppercase tracking-wider">Months</th>
+      <th class="px-5 py-3 text-right font-semibold uppercase tracking-wider">Realized P&amp;L</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function renderPerfSummary(){
@@ -2836,7 +3606,7 @@ async function init(){
   }
 
   setTab(S.tab);
-  await Promise.all([loadHoldings(),loadAccounts(),loadLoans(),loadImports()]);
+  await Promise.all([loadHoldings(),loadAccounts(),loadLoans(),loadGrants(),loadImports()]);
   await loadPrices();
   S.lastUpdated=Date.now();
   document.getElementById('lastUpdated').textContent='Updated just now';
@@ -2868,6 +3638,20 @@ function schwabAcctLabel(acct){
 }
 
 function isOption(p){ return p.asset_type==='OPTION' || (p.symbol&&p.symbol.includes(' ')); }
+
+function optionBreakeven(p){
+  if(p.avg_price == null) return null;
+  let strike = p.strike_price;
+  let isCall  = !p.put_call || p.put_call.toUpperCase().startsWith('C');
+  // Fall back to parsing OCC symbol: "SATL  270115C00010000"
+  if(strike == null){
+    const m = (p.symbol||'').trim().match(/^\S+\s+\d{6}([CP])(\d{8})$/);
+    if(!m) return null;
+    isCall = m[1].toUpperCase() === 'C';
+    strike = parseInt(m[2]) / 1000;
+  }
+  return isCall ? strike + p.avg_price : strike - p.avg_price;
+}
 
 function toOCCSymbol(sym){
   // "SATL 01/15/2027 10.00 C" → "SATL  270115C00010000"
@@ -2914,7 +3698,11 @@ async function loadSchwabStatus(){
     S.schwabStatus = {configured:false, connected:false};
   }
   renderSchwabStatus();
-  if(S.schwabStatus?.connected) await loadSchwabPositions();
+  if(S.schwabStatus?.connected){
+    await loadSchwabPositions();
+    // Re-fetch grant prices now that Schwab quotes are available
+    if(S.grants.length) { await loadGrants(); renderGrants(); renderOverview(); }
+  }
 }
 
 async function loadSchwabPositions(){
@@ -2998,7 +3786,7 @@ function renderSchwabPositions(){
   // Total card
   totalCard?.classList.remove('hidden');
   const tvEl  = document.getElementById('schwab-total-value');
-  if(tvEl) tvEl.textContent = fmtUSD(data.total_value);
+  if(tvEl) tvEl.textContent = fmtUSDExact(data.total_value);
   const cntEl = document.getElementById('schwab-accounts-count');
   if(cntEl) cntEl.textContent = `${data.accounts.length} account${data.accounts.length!==1?'s':''} · live market value`;
 
@@ -3072,7 +3860,7 @@ function renderSchwabPositions(){
       const retPct  = schwabReturnPct(p);
       const acctPct = acctTotal  > 0 ? p.market_value/acctTotal*100  : 0;
       const totPct  = grandTotal > 0 ? p.market_value/grandTotal*100 : 0;
-      const {html:ph,cls:pc} = p.unrealized_pnl!=null ? fmtPnl(p.unrealized_pnl) : {html:'—',cls:'text-slate-600'};
+      const {html:ph,cls:pc} = p.unrealized_pnl!=null ? fmtPnlExact(p.unrealized_pnl) : {html:'—',cls:'text-slate-600'};
       const retHtml = retPct!=null
         ? `<span class="${retPct>=0?'pnl-pos':'pnl-neg'} font-medium">${retPct>=0?'+':''}${S.privacy?'••':retPct.toFixed(2)+'%'}</span>`
         : '—';
@@ -3123,9 +3911,9 @@ function renderSchwabPositions(){
           </div>
         </td>
         <td class="px-5 py-3.5 text-right text-slate-300 text-sm whitespace-nowrap">${fmtAmt(p.quantity)}</td>
-        <td class="px-5 py-3.5 text-right text-slate-400 text-sm whitespace-nowrap">${fmtPrice(p.avg_price, true)}</td>
-        <td class="px-5 py-3.5 text-right text-slate-400 text-sm whitespace-nowrap">${fmtUSD(costBasisTotal)}</td>
-        <td class="px-5 py-3.5 text-right text-white font-semibold text-sm whitespace-nowrap">${fmtUSD(p.market_value)}</td>
+        <td class="px-5 py-3.5 text-right text-slate-400 text-sm whitespace-nowrap">${fmtPrice(p.avg_price, true)}${(()=>{const be=isOption(p)?optionBreakeven(p):null;return be!=null?`<div class="text-slate-600 text-xs mt-0.5">BE ${fmtPrice(be,true)}</div>`:''})()}</td>
+        <td class="px-5 py-3.5 text-right text-slate-400 text-sm whitespace-nowrap">${fmtUSDExact(costBasisTotal)}</td>
+        <td class="px-5 py-3.5 text-right text-white font-semibold text-sm whitespace-nowrap">${fmtUSDExact(p.market_value)}</td>
         <td class="px-5 py-3.5 text-right whitespace-nowrap">${pctHtml}</td>
         <td class="px-5 py-3.5 text-right whitespace-nowrap">${dayHtml}</td>
         <td class="px-5 py-3.5 text-right whitespace-nowrap"><span class="${pc} text-sm font-medium">${ph}</span></td>
@@ -3168,7 +3956,7 @@ function renderSchwabPositions(){
   const cashRow = cashBal > 0.01 ? `
     <div class="flex items-center justify-between px-5 py-3 border-t border-white/5">
       <span class="text-slate-500 text-sm">Cash / Money Market</span>
-      <span class="text-white font-semibold text-sm">${fmtUSD(cashBal)}</span>
+      <span class="text-white font-semibold text-sm">${fmtUSDExact(cashBal)}</span>
     </div>` : '';
 
   const acctTotalVal = isAll ? grandTotal : data.accounts[S.schwabActiveTab]?.total_value;
@@ -3185,7 +3973,7 @@ function renderSchwabPositions(){
       </div>
       <div class="flex items-center justify-between px-6 py-3 border-b border-white/5">
         <span class="text-slate-500 text-xs">${positions.length} position${positions.length!==1?'s':''}</span>
-        <span class="text-white font-semibold text-sm">${fmtUSD(acctTotalVal)}</span>
+        <span class="text-white font-semibold text-sm">${fmtUSDExact(acctTotalVal)}</span>
       </div>
       ${section('Equities & ETFs','#94a3b8',equities)}
       ${section('Options','#a78bfa',options)}
