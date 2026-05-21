@@ -7,7 +7,7 @@ import shutil
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date as _date, datetime, timedelta
+from datetime import date as _date, datetime, timedelta, timezone
 from io import StringIO
 
 import requests
@@ -74,8 +74,8 @@ def _ensure_ssl_cert():
             .subject_name(subj).issuer_name(subj)
             .public_key(key.public_key())
             .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.utcnow())
-            .not_valid_after(datetime.utcnow() + timedelta(days=3650))
+            .not_valid_before(datetime.now(timezone.utc))
+            .not_valid_after(datetime.now(timezone.utc) + timedelta(days=3650))
             .add_extension(
                 x509.SubjectAlternativeName([
                     x509.IPAddress(_ip.IPv4Address("127.0.0.1")),
@@ -134,6 +134,21 @@ def _save(path, data):
         json.dump(data, f, indent=2)
     os.replace(tmp, path)   # atomic write
 
+
+def _save_secure(path, data):
+    """Same as _save but chmod 600 — for files containing tokens or secrets."""
+    _save(path, data)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+def _utcnow_iso():
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
+def _safe_filename(name):
+    return name.replace("/", "_").replace("\\", "_")
+
 def load_portfolio():
     # Migrate from old root location if needed
     old = os.path.join(BASE_DIR, "portfolio.json")
@@ -189,7 +204,7 @@ def add_holding():
             return jsonify(h)
 
     h = {"id": str(uuid.uuid4()), "symbol": symbol, "name": name,
-         "amount": amount, "added_at": datetime.utcnow().isoformat()}
+         "amount": amount, "added_at": _utcnow_iso()}
     db["holdings"].append(h)
     save_portfolio(db)
     return jsonify(h), 201
@@ -202,7 +217,7 @@ def update_holding(hid):
         if h["id"] == hid:
             if "amount" in data:
                 try:    h["amount"] = float(data["amount"])
-                except: return jsonify({"error": "Invalid amount"}), 400
+                except (TypeError, ValueError): return jsonify({"error": "Invalid amount"}), 400
             if "name" in data:
                 h["name"] = data["name"]
             save_portfolio(db)
@@ -265,7 +280,8 @@ def get_prices_bulk():
 
     results = {}
     with ThreadPoolExecutor(max_workers=min(len(symbols), 12)) as ex:
-        for sym, d in [f.result() for f in as_completed(ex.submit(fetch, s) for s in symbols)]:
+        for fut in as_completed(ex.submit(fetch, s) for s in symbols):
+            sym, d = fut.result()
             results[sym] = d
     return jsonify(results)
 
@@ -294,7 +310,7 @@ def add_account():
         "type":       data.get("type",  "other").strip(),
         "value":      value,
         "notes":      data.get("notes", "").strip(),
-        "updated_at": datetime.utcnow().isoformat(),
+        "updated_at": _utcnow_iso(),
     }
     db["accounts"].append(acct)
     save_accounts(db)
@@ -310,8 +326,8 @@ def update_account(aid):
                 if k in data: a[k] = data[k]
             if "value" in data:
                 try:    a["value"] = float(data["value"])
-                except: return jsonify({"error": "Invalid value"}), 400
-            a["updated_at"] = datetime.utcnow().isoformat()
+                except (TypeError, ValueError): return jsonify({"error": "Invalid value"}), 400
+            a["updated_at"] = _utcnow_iso()
             save_accounts(db)
             return jsonify(a)
     return jsonify({"error": "Not found"}), 404
@@ -356,7 +372,7 @@ def add_loan():
         "monthly_payment":  monthly_payment,
         "interest_rate":    interest_rate,
         "notes":            data.get("notes", "").strip(),
-        "updated_at":       datetime.utcnow().isoformat(),
+        "updated_at":       _utcnow_iso(),
     }
     db["loans"].append(loan)
     save_loans(db)
@@ -374,11 +390,11 @@ def update_loan(lid):
             for k in ("balance", "monthly_payment", "interest_rate", "original_balance"):
                 if k in data:
                     try:    l[k] = float(data[k]) if data[k] not in (None, "") else 0.0
-                    except: return jsonify({"error": f"Invalid {k}"}), 400
+                    except (TypeError, ValueError): return jsonify({"error": f"Invalid {k}"}), 400
             # keep balance in sync with original_balance
             if "original_balance" in data:
                 l["balance"] = l["original_balance"]
-            l["updated_at"] = datetime.utcnow().isoformat()
+            l["updated_at"] = _utcnow_iso()
             save_loans(db)
             return jsonify(l)
     return jsonify({"error": "Not found"}), 404
@@ -426,7 +442,7 @@ def add_grant():
         "vest_interval_months": vest_interval_months,
         "vest_pct_per_period":  vest_pct_per_period,
         "notes":                data.get("notes", "").strip(),
-        "created_at":           datetime.utcnow().isoformat(),
+        "created_at":           _utcnow_iso(),
     }
     db["grants"].append(grant)
     save_grants(db)
@@ -446,10 +462,10 @@ def update_grant(gid):
             for k in ("grant_price", "total_shares", "vest_pct_per_period"):
                 if k in data:
                     try:    g[k] = float(data[k])
-                    except: return jsonify({"error": f"Invalid {k}"}), 400
+                    except (TypeError, ValueError): return jsonify({"error": f"Invalid {k}"}), 400
             if "vest_interval_months" in data:
                 try:    g["vest_interval_months"] = int(data["vest_interval_months"])
-                except: return jsonify({"error": "Invalid vest_interval_months"}), 400
+                except (TypeError, ValueError): return jsonify({"error": "Invalid vest_interval_months"}), 400
             if not g.get("name"):
                 g["name"] = f"{g['symbol']} RSU {g['grant_date'][:4]}"
             save_grants(db)
@@ -509,11 +525,6 @@ def _parse_schwab_csv(content):
             date = datetime.strptime(date_str, "%m/%d/%Y").date().isoformat()
         except ValueError:
             continue
-        dt_str = date_str.split(" as of ")[0].strip()
-        try:
-            date = datetime.strptime(dt_str, "%m/%d/%Y").date().isoformat()
-        except ValueError:
-            continue
 
         action      = row.get("Action",      "").strip().strip('"')
         symbol      = row.get("Symbol",      "").strip().strip('"')
@@ -559,12 +570,16 @@ def _calc_performance(transactions):
       open_lots    – remaining unmatched buy lots
       last_close_date – ISO date of most-recent sell for sort support
     """
-    BUY_ACTIONS  = {"Buy", "Buy to Open", "Reinvest Shares", "Buy to Close"}
-    SELL_ACTIONS = {"Sell", "Sell to Close", "Sell to Open"}
-    DIV_ACTIONS  = {"Cash Dividend", "Qualified Dividend", "Credit Interest",
-                    "Non-Qualified Div", "Special Dividend"}
+    BUY_ACTIONS   = {"Buy", "Buy to Open", "Reinvest Shares", "Buy to Close"}
+    SELL_ACTIONS  = {"Sell", "Sell to Close", "Sell to Open"}
+    DIV_ACTIONS   = {"Cash Dividend", "Qualified Dividend", "Credit Interest",
+                     "Non-Qualified Div", "Special Dividend"}
+    SPLIT_ACTIONS = {"Stock Split", "Forward Split", "Reverse Split"}
 
-    open_lots    = {}   # sym -> list[lot dict]  (acts as FIFO queue)
+    # FIFO queue keyed by (symbol, account) so cross-account sells don't consume
+    # shares that live in a different brokerage. Schwab tracks basis per-account
+    # for tax purposes; matching that here keeps LT/ST classification correct.
+    open_lots    = {}   # (sym, account) -> list[lot dict]
     closed_lots  = []   # all matched lot records
     dividends    = 0.0
     descriptions = {}
@@ -572,13 +587,24 @@ def _calc_performance(transactions):
     sell_counts  = {}
     last_tx_dates = {}  # sym -> most-recent any-transaction date
 
-    for tx in sorted(transactions, key=lambda x: x["date"]):
+    # Within a single date, run buys/splits before sells so same-day buys
+    # can cover same-day sells (Schwab CSVs only have date precision, not
+    # intraday timestamps, so without this a same-day sell-then-buy orphans).
+    def _action_priority(action):
+        if action in BUY_ACTIONS or action in SPLIT_ACTIONS:
+            return 0
+        if action in SELL_ACTIONS:
+            return 1
+        return 2  # dividends, interest, etc. — last
+
+    for tx in sorted(transactions, key=lambda x: (x["date"], _action_priority(x["action"]))):
         sym     = tx["symbol"]
         action  = tx["action"]
         qty     = tx["quantity"] or 0
         amount  = tx["amount"]   or 0
         account = tx.get("account_name", "Unknown")
         desc    = tx.get("description", "")
+        key     = (sym, account)
 
         if sym and desc and sym not in descriptions:
             descriptions[sym] = desc
@@ -589,7 +615,7 @@ def _calc_performance(transactions):
 
         if action in BUY_ACTIONS and sym and qty > 1e-9:
             cost = abs(amount)
-            open_lots.setdefault(sym, []).append({
+            open_lots.setdefault(key, []).append({
                 "open_date":     tx["date"],
                 "qty":           qty,
                 "remaining_qty": qty,
@@ -598,13 +624,29 @@ def _calc_performance(transactions):
             })
             buy_counts[sym] = buy_counts.get(sym, 0) + 1
 
+        elif action in SPLIT_ACTIONS and sym and qty > 1e-9:
+            # Scale all open lots for this (symbol, account) — adds shares without
+            # changing total cost basis. qty here is the NUMBER OF SHARES ADDED.
+            # Per-share cost basis = total_cost / (existing_qty + added_qty).
+            lots = open_lots.get(key, [])
+            existing_qty = sum(l["remaining_qty"] for l in lots if l["remaining_qty"] > 1e-9)
+            if existing_qty <= 1e-9:
+                continue  # nothing to split
+            ratio = (existing_qty + qty) / existing_qty
+            for l in lots:
+                if l["remaining_qty"] <= 1e-9:
+                    continue
+                l["remaining_qty"] *= ratio
+                l["qty"]           *= ratio
+                l["unit_cost"]     /= ratio
+
         elif action in SELL_ACTIONS and sym and qty > 1e-9:
             proceeds       = abs(amount)
             proceeds_per_u = proceeds / qty
             remaining_sell = qty
             sell_counts[sym] = sell_counts.get(sym, 0) + 1
 
-            lots = open_lots.get(sym, [])
+            lots = open_lots.get(key, [])
             i = 0
             while remaining_sell > 1e-9 and i < len(lots):
                 lot      = lots[i]
@@ -634,10 +676,10 @@ def _calc_performance(transactions):
                 if lot["remaining_qty"] < 1e-9:
                     i += 1
 
-            open_lots[sym] = [l for l in lots if l["remaining_qty"] > 1e-9]
+            open_lots[key] = [l for l in lots if l["remaining_qty"] > 1e-9]
 
-            # Orphan sell — shares sold with no matching buy in history.
-            # Cost basis is unknown; P&L is marked None so it's excluded from totals.
+            # Orphan sell — shares sold from an account with no matching buy in
+            # history (CSV window doesn't reach back far enough, or transferred in).
             if remaining_sell > 1e-9:
                 closed_lots.append({
                     "symbol": sym, "open_date": None, "close_date": tx["date"],
@@ -653,7 +695,6 @@ def _calc_performance(transactions):
 
     # ── Aggregate per symbol ─────────────────────────────────────
     by_symbol = {}
-    unrealized_pnl_sum = 0.0
 
     for lot in closed_lots:
         sym = lot["symbol"]
@@ -676,9 +717,14 @@ def _calc_performance(transactions):
         if s["last_close_date"] is None or lot["close_date"] > s["last_close_date"]:
             s["last_close_date"] = lot["close_date"]
 
-    # Attach open positions
-    for sym, lots in open_lots.items():
-        remaining = [l for l in lots if l["remaining_qty"] > 1e-9]
+    # Attach open positions — aggregate across all (sym, account) buckets per symbol
+    open_by_sym = {}   # sym -> [lot, lot, ...]
+    for (sym, _acct), lots in open_lots.items():
+        for l in lots:
+            if l["remaining_qty"] > 1e-9:
+                open_by_sym.setdefault(sym, []).append(l)
+
+    for sym, remaining in open_by_sym.items():
         if not remaining:
             continue
         s = by_symbol.setdefault(sym, {
@@ -711,11 +757,58 @@ def _calc_performance(transactions):
         s.setdefault("incomplete_basis",   False)
         s["closed_lots"].sort(key=lambda x: x["close_date"] or "")
 
+    # ── LT/ST splits for tax tracking ────────────────────────────
+    # Long-term = holding period > 365 days (US IRS threshold).
+    # Realized split is calendar year-to-date (since Jan 1) — matches how
+    # capital gains are reported on Schedule D / Form 8949.
+    today      = _date.today()
+    year_start = _date(today.year, 1, 1).isoformat()
+
+    # Per-symbol split of OPEN lots by current holding period.
+    # Frontend layers on current price to compute unrealized LT/ST.
+    for sym, s in by_symbol.items():
+        lt_qty = st_qty = lt_basis = st_basis = 0.0
+        for l in s.get("open_lots", []):
+            if l.get("open_date"):
+                held_days = (today - _date.fromisoformat(l["open_date"])).days
+            else:
+                held_days = 0
+            qty  = l["qty"]
+            cost = l["unit_cost"] * qty
+            if held_days > 365:
+                lt_qty   += qty
+                lt_basis += cost
+            else:
+                st_qty   += qty
+                st_basis += cost
+        s["open_lt_qty"]      = round(lt_qty, 6)
+        s["open_st_qty"]      = round(st_qty, 6)
+        s["open_lt_basis"]    = lt_basis
+        s["open_st_basis"]    = st_basis
+        s["open_lt_avg_cost"] = lt_basis / lt_qty if lt_qty > 1e-9 else 0.0
+        s["open_st_avg_cost"] = st_basis / st_qty if st_qty > 1e-9 else 0.0
+
+    # Realized P&L year-to-date (current calendar year), split LT/ST.
+    realized_lt_ytd = 0.0
+    realized_st_ytd = 0.0
+    for lot in closed_lots:
+        if lot.get("orphan") or lot.get("realized_pnl") is None:
+            continue
+        if (lot.get("close_date") or "") < year_start:
+            continue
+        if lot.get("is_long_term"):
+            realized_lt_ytd += lot["realized_pnl"]
+        else:
+            realized_st_ytd += lot["realized_pnl"]
+
     return {
         "by_symbol":          by_symbol,
-        "total_realized_pnl": sum(v["realized_pnl"] for v in by_symbol.values()), # This is wrong, wait.
+        "total_realized_pnl": sum(v["realized_pnl"] for v in by_symbol.values()),
         "total_dividends":    dividends,
         "total_fees":         0.0,   # fees are baked into Schwab amounts
+        "realized_lt_ytd":    realized_lt_ytd,
+        "realized_st_ytd":    realized_st_ytd,
+        "realized_ytd_year":  today.year,
         "sharpe_by_year":     _calc_sharpe_stats(closed_lots),
         "sharpe_risk_free":   SHARPE_RISK_FREE_ANNUAL,
     }
@@ -805,7 +898,7 @@ def import_trades():
     content      = f.read().decode("utf-8-sig")   # strip BOM
 
     # Save raw CSV copy
-    safe_name = f.filename.replace("/", "_").replace("\\", "_")
+    safe_name = _safe_filename(f.filename)
     with open(os.path.join(IMPORTS_DIR, safe_name), "w", encoding="utf-8") as fp:
         fp.write(content)
 
@@ -837,7 +930,7 @@ def import_trades():
         "filename":               safe_name,
         "account_name":           account_name,
         "notes":                  notes,
-        "imported_at":            datetime.utcnow().isoformat(),
+        "imported_at":            _utcnow_iso(),
         "date_range_from":        min(dates),
         "date_range_to":          max(dates),
         "total_rows":             len(new_txs),
@@ -986,7 +1079,7 @@ def _parse_kraken_csv(content):
 
         def _f(key):
             try:    return float(row.get(key, 0) or 0)
-            except: return 0.0
+            except (TypeError, ValueError): return 0.0
 
         txs.append({
             "id":         txid,
@@ -1190,7 +1283,7 @@ def kraken_import():
     notes   = request.form.get("notes", "").strip()
     content = f.read().decode("utf-8-sig")
 
-    safe_name = f.filename.replace("/", "_").replace("\\", "_")
+    safe_name = _safe_filename(f.filename)
     kraken_imports_dir = os.path.join(IMPORTS_DIR, "kraken")
     os.makedirs(kraken_imports_dir, exist_ok=True)
     with open(os.path.join(kraken_imports_dir, safe_name), "w", encoding="utf-8") as fp:
@@ -1215,7 +1308,7 @@ def kraken_import():
         "id":                     import_id,
         "filename":               safe_name,
         "notes":                  notes,
-        "imported_at":            datetime.utcnow().isoformat(),
+        "imported_at":            _utcnow_iso(),
         "date_range_from":        min(dates),
         "date_range_to":          max(dates),
         "total_rows":             len(new_txs),
@@ -1265,7 +1358,7 @@ def _load_schwab_token():
 
 
 def _save_schwab_token(d):
-    _save(SCHWAB_TOKEN_FILE, d)
+    _save_secure(SCHWAB_TOKEN_FILE, d)
 
 
 def _schwab_access_token():
@@ -1344,13 +1437,13 @@ def schwab_callback():
             "refresh_token":     d["refresh_token"],
             "expires_at":        time.time() + d.get("expires_in", 1800) - 30,
             "refresh_issued_at": time.time(),
-            "connected_at":      datetime.utcnow().isoformat(),
+            "connected_at":      _utcnow_iso(),
         })
         return redirect("/?schwab_connected=1")
-    except requests.HTTPError as e:
+    except requests.HTTPError:
         return redirect(f"/?schwab_error=token_exchange_failed_{r.status_code}")
-    except Exception as e:
-        return redirect(f"/?schwab_error=unknown")
+    except Exception:
+        return redirect("/?schwab_error=unknown")
 
 
 # ── Schwab: API routes ─────────────────────────────────────────────
@@ -1419,9 +1512,10 @@ def _label_from_filename(fn):
     return last3, label.strip() or None
 
 
-def _build_label_map():
+def _build_label_map(cfg=None):
     """Return last3 → human label, preferring nicknames then CSV filenames."""
-    cfg = _load(SCHWAB_CONFIG_FILE, {})
+    if cfg is None:
+        cfg = _load(SCHWAB_CONFIG_FILE, {})
     result = {}
     for last4, nick in (cfg.get("account_nicknames") or {}).items():
         result[last4[-3:]] = nick
@@ -1451,14 +1545,17 @@ def schwab_positions():
             timeout=15,
         )
         if r.status_code == 401:
-            _save_schwab_token({})   # invalidate stale token
+            if os.path.exists(SCHWAB_TOKEN_FILE):
+                os.remove(SCHWAB_TOKEN_FILE)
             return jsonify({"error": "token_expired"}), 401
         r.raise_for_status()
         accounts_data = r.json()
     except requests.RequestException as e:
         return jsonify({"error": f"Schwab API error: {e}"}), 502
 
-    label_map = _build_label_map()
+    cfg = _load(SCHWAB_CONFIG_FILE, {})
+    nicknames = cfg.get("account_nicknames") or {}
+    label_map = _build_label_map(cfg)
     result_accounts = []
     total_value = 0.0
 
@@ -1511,8 +1608,7 @@ def schwab_positions():
             or ""
         ).upper()
 
-        cfg      = _load(SCHWAB_CONFIG_FILE, {})
-        nickname = (cfg.get("account_nicknames") or {}).get(last4, "")
+        nickname = nicknames.get(last4, "")
         label    = nickname or label_map.get(last4[-3:]) or raw_type or "Account"
 
         result_accounts.append({
@@ -1638,7 +1734,7 @@ def schwab_fetch_transactions():
 
     last3_to_label = _build_label_map()
 
-    now_dt = datetime.utcnow()
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     total_added  = 0
     all_imports  = []
     fetch_errors = []
@@ -1718,7 +1814,7 @@ def schwab_fetch_transactions():
             "filename":               f"schwab_api_{acct_num[-4:]}_{now_dt.strftime('%Y%m%d')}",
             "account_name":           acct_label,
             "notes":                  "Fetched via Schwab API",
-            "imported_at":            datetime.utcnow().isoformat(),
+            "imported_at":            _utcnow_iso(),
             "date_range_from":        min(dates),
             "date_range_to":          max(dates),
             "total_rows":             len(new_txs),
@@ -1780,18 +1876,13 @@ BANK_FILE       = os.path.join(DATA_DIR, "bank.json")
 
 
 def _load_apple_card():
-    if os.path.exists(APPLE_CARD_FILE):
-        with open(APPLE_CARD_FILE) as f:
-            d = json.load(f)
-            if "imports" not in d:
-                d["imports"] = []
-            return d
-    return {"transactions": [], "imports": []}
+    d = _load(APPLE_CARD_FILE, {"transactions": [], "imports": []})
+    d.setdefault("imports", [])
+    return d
 
 
 def _save_apple_card(data):
-    with open(APPLE_CARD_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    _save(APPLE_CARD_FILE, data)
 
 
 @app.route("/apple-card")
@@ -1899,7 +1990,7 @@ def apple_card_import():
     if not f:
         return jsonify({"error": "No file"}), 400
 
-    filename = f.filename.replace("/", "_").replace("\\", "_")
+    filename = _safe_filename(f.filename)
     card_name = request.form.get("card_name", "").strip()
 
     content = f.read().decode("utf-8-sig")
@@ -1941,7 +2032,7 @@ def apple_card_import():
         "filename":             filename,
         "card_name":            card_name,
         "source":               fmt,
-        "imported_at":          datetime.utcnow().isoformat(),
+        "imported_at":          _utcnow_iso(),
         "new_transactions":     len(new_rows),
         "duplicate_transactions": dupes,
     })
@@ -1967,18 +2058,13 @@ _CC_PAYMENT_PATTERNS = re.compile(
 
 
 def _load_bank():
-    if os.path.exists(BANK_FILE):
-        with open(BANK_FILE) as f:
-            d = json.load(f)
-            if "imports" not in d:
-                d["imports"] = []
-            return d
-    return {"transactions": [], "imports": []}
+    d = _load(BANK_FILE, {"transactions": [], "imports": []})
+    d.setdefault("imports", [])
+    return d
 
 
 def _save_bank(data):
-    with open(BANK_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    _save(BANK_FILE, data)
 
 
 @app.route("/api/bank/transactions")
@@ -1999,21 +2085,91 @@ def bank_delete_import(import_id):
     return jsonify({"removed_transactions": before - len(data["transactions"])})
 
 
+def _norm_tx_date(s):
+    """Normalize CSV (MM/DD/YY) and Plaid (ISO) dates to YYYY-MM-DD for matching."""
+    s = (s or "").strip()
+    for fmt in ("%Y-%m-%d", "%m/%d/%y", "%m/%d/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return s
+
+
+def _bank_match_key(t):
+    """(date, abs(amount), account-last4). Used to detect the same real-world
+    transaction across Plaid + CSV imports, which hash differently."""
+    acct = str(t.get("account") or "")
+    return (
+        _norm_tx_date(t.get("tx_date")),
+        round(abs(float(t.get("amount") or 0)), 2),
+        acct[-4:],
+    )
+
+
+def _dedup_bank_cross_source(data):
+    """Whenever a CSV row exists for a (date, amount, last-4) key, drop every
+    non-pending Plaid row for that key. CSV is treated as the bank's
+    authoritative record (longer history, fuller descriptions, no
+    Plaid-side double-reporting). Pending Plaid rows are preserved because
+    they typically haven't posted to the CSV yet."""
+    from collections import defaultdict
+    groups = defaultdict(lambda: {"csv": [], "plaid": []})
+    for idx, t in enumerate(data["transactions"]):
+        bucket = "plaid" if t.get("plaid_id") else "csv"
+        groups[_bank_match_key(t)][bucket].append(idx)
+
+    drop = set()
+    for k, g in groups.items():
+        if not g["csv"]:
+            continue
+        for i in g["plaid"]:
+            if not data["transactions"][i].get("pending"):
+                drop.add(i)
+
+    if drop:
+        data["transactions"] = [
+            t for i, t in enumerate(data["transactions"]) if i not in drop
+        ]
+    return len(drop)
+
+
+@app.route("/api/bank/dedup-sources", methods=["POST"])
+def bank_dedup_sources():
+    """One-shot cleanup of cross-source duplicates already in bank.json."""
+    data = _load_bank()
+    removed = _dedup_bank_cross_source(data)
+    if removed:
+        _save_bank(data)
+    return jsonify({"removed": removed, "total": len(data["transactions"])})
+
+
 @app.route("/api/bank/import", methods=["POST"])
 def bank_import():
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "No file"}), 400
 
-    filename = f.filename.replace("/", "_").replace("\\", "_")
+    filename = _safe_filename(f.filename)
     account_name = request.form.get("account_name", "").strip() or "Bank Account"
-    import_id = str(uuid.uuid4())
 
     content = f.read().decode("utf-8-sig")
     reader = csv.DictReader(StringIO(content))
 
     data = _load_bank()
     existing_hashes = {t["hash"] for t in data["transactions"]}
+
+    # Periodic re-imports for the same account (e.g. Capital One's 90-day
+    # CSV cap, re-pulled quarterly) collapse into a single imports[] entry so
+    # the user sees one growing record instead of N stacked rows. Matched
+    # case-insensitively on account_name; rename to keep imports separate.
+    match_key = account_name.casefold()
+    existing_import = next(
+        (i for i in data["imports"]
+         if (i.get("account_name") or "").casefold() == match_key),
+        None,
+    )
+    import_id = existing_import["id"] if existing_import else str(uuid.uuid4())
 
     def _pick(row, *keys, default=""):
         for k in keys:
@@ -2091,22 +2247,46 @@ def bank_import():
         })
 
     data["transactions"].extend(new_rows)
-    data["imports"].append({
-        "id":                   import_id,
-        "filename":             filename,
-        "account_name":         account_name,
-        "imported_at":          datetime.utcnow().isoformat(),
-        "new_transactions":     len(new_rows),
+
+    # If a Plaid sync already pulled some of these rows, drop the Plaid copy
+    # (CSV is more detailed and is the long-term archive).
+    cross_removed = _dedup_bank_cross_source(data)
+
+    now_iso = _utcnow_iso()
+    refresh_record = {
+        "filename":               filename,
+        "imported_at":            now_iso,
+        "new_transactions":       len(new_rows),
         "duplicate_transactions": dupes,
-        "skipped_cc":           skipped_cc,
-    })
+        "skipped_cc":             skipped_cc,
+    }
+    if existing_import:
+        existing_import["filename"]               = filename       # latest CSV
+        existing_import["imported_at"]            = now_iso        # latest run
+        existing_import["new_transactions"]       = (existing_import.get("new_transactions") or 0) + len(new_rows)
+        existing_import["duplicate_transactions"] = (existing_import.get("duplicate_transactions") or 0) + dupes
+        existing_import["skipped_cc"]             = (existing_import.get("skipped_cc") or 0) + skipped_cc
+        existing_import.setdefault("refreshes", []).append(refresh_record)
+    else:
+        data["imports"].append({
+            "id":                     import_id,
+            "filename":               filename,
+            "account_name":           account_name,
+            "imported_at":            now_iso,
+            "new_transactions":       len(new_rows),
+            "duplicate_transactions": dupes,
+            "skipped_cc":             skipped_cc,
+            "refreshes":              [refresh_record],
+        })
     _save_bank(data)
 
     return jsonify({
-        "imported":   len(new_rows),
-        "duplicates": dupes,
-        "skipped_cc": skipped_cc,
-        "total":      len(data["transactions"]),
+        "imported":         len(new_rows),
+        "duplicates":       dupes,
+        "skipped_cc":       skipped_cc,
+        "total":            len(data["transactions"]),
+        "merged":           existing_import is not None,
+        "plaid_superseded": cross_removed,
     })
 
 
@@ -2114,6 +2294,442 @@ def bank_import():
 def bank_clear():
     _save_bank({"transactions": [], "imports": []})
     return jsonify({"ok": True})
+
+
+# ── Plaid ──────────────────────────────────────────────────────────
+
+PLAID_CONFIG_FILE = os.path.join(DATA_DIR, "plaid_config.json")
+PLAID_ITEMS_FILE  = os.path.join(DATA_DIR, "plaid_items.json")
+PLAID_ENV_URLS = {
+    "sandbox":    "https://sandbox.plaid.com",
+    "production": "https://production.plaid.com",
+}
+
+
+def _plaid_config():
+    """Return {client_id, secret, env} or None if not configured.
+    Tuple form: (cfg_or_None, error_message_or_None)."""
+    if not os.path.exists(PLAID_CONFIG_FILE):
+        return None
+    try:
+        with open(PLAID_CONFIG_FILE) as f:
+            cfg = json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"  plaid_config.json parse error: line {e.lineno} col {e.colno}: {e.msg}")
+        return None
+    if not cfg or not cfg.get("client_id") or not cfg.get("secret"):
+        return None
+    cfg.setdefault("env", "sandbox")
+    return cfg
+
+
+def _plaid_config_error():
+    """Return a human-readable parse error if the config exists but is malformed."""
+    if not os.path.exists(PLAID_CONFIG_FILE):
+        return None
+    try:
+        with open(PLAID_CONFIG_FILE) as f:
+            json.load(f)
+        return None
+    except json.JSONDecodeError as e:
+        return f"plaid_config.json line {e.lineno}, col {e.colno}: {e.msg}"
+
+
+def _plaid_base_url(cfg):
+    return PLAID_ENV_URLS.get(cfg.get("env", "sandbox"), PLAID_ENV_URLS["sandbox"])
+
+
+def _plaid_post(cfg, path, body):
+    """POST to Plaid API. Always injects client_id + secret. Raises on error."""
+    payload = {"client_id": cfg["client_id"], "secret": cfg["secret"], **body}
+    r = requests.post(
+        f"{_plaid_base_url(cfg)}{path}",
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=30,
+    )
+    if r.status_code >= 400:
+        try:
+            err = r.json()
+        except Exception:
+            err = {"error_message": r.text[:200]}
+        raise RuntimeError(err.get("error_message") or err.get("error_code") or f"Plaid {r.status_code}")
+    return r.json()
+
+
+def _load_plaid_items():
+    d = _load(PLAID_ITEMS_FILE, {"items": []})
+    d.setdefault("items", [])
+    return d
+
+
+def _save_plaid_items(data):
+    _save_secure(PLAID_ITEMS_FILE, data)
+
+
+def _plaid_item_public(item):
+    """Strip access_token before returning to frontend."""
+    return {k: v for k, v in item.items() if k != "access_token"}
+
+
+@app.route("/api/plaid/status")
+def plaid_status():
+    cfg = _plaid_config()
+    items = _load_plaid_items()["items"]
+    return jsonify({
+        "configured":  cfg is not None,
+        "env":         cfg["env"] if cfg else None,
+        "config_error": _plaid_config_error(),
+        "items":       [_plaid_item_public(i) for i in items],
+    })
+
+
+@app.route("/api/plaid/link-token", methods=["POST"])
+def plaid_link_token():
+    cfg = _plaid_config()
+    if not cfg:
+        return jsonify({"error": "Plaid not configured. Create data/plaid_config.json."}), 400
+
+    body = request.get_json(silent=True) or {}
+    item_id = body.get("item_id")  # if provided, generate update-mode token
+
+    req = {
+        "client_name":   "Portfolio Tracker",
+        "country_codes": ["US"],
+        "language":      "en",
+        "user":          {"client_user_id": "portfolio-tracker-local"},
+        # Pull max history Plaid allows (~2 years). Default would be 90 days.
+        "transactions":  {"days_requested": 730},
+    }
+
+    # Required for OAuth institutions (Chase, BofA, etc.) in production.
+    # Must exactly match a redirect URI registered in the Plaid dashboard.
+    redirect_uri = cfg.get("redirect_uri")
+    if redirect_uri:
+        req["redirect_uri"] = redirect_uri
+
+    if item_id:
+        item = next((i for i in _load_plaid_items()["items"] if i["item_id"] == item_id), None)
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+        req["access_token"] = item["access_token"]
+    else:
+        req["products"] = ["transactions"]
+
+    try:
+        res = _plaid_post(cfg, "/link/token/create", req)
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
+    return jsonify({"link_token": res["link_token"], "expiration": res.get("expiration")})
+
+
+@app.route("/plaid-callback")
+def plaid_callback():
+    """OAuth return URL for institutions like Chase that redirect off-site for auth.
+    Plaid Link is re-opened in 'received-redirect' mode, picks up the URL params,
+    then fires onSuccess like a normal connect."""
+    return render_template("plaid_callback.html")
+
+
+@app.route("/api/plaid/exchange", methods=["POST"])
+def plaid_exchange():
+    cfg = _plaid_config()
+    if not cfg:
+        return jsonify({"error": "Plaid not configured"}), 400
+
+    body = request.get_json(silent=True) or {}
+    public_token = body.get("public_token")
+    if not public_token:
+        return jsonify({"error": "Missing public_token"}), 400
+
+    try:
+        exch = _plaid_post(cfg, "/item/public_token/exchange", {"public_token": public_token})
+        access_token = exch["access_token"]
+        item_id      = exch["item_id"]
+
+        # Pull accounts + institution name
+        acct_res  = _plaid_post(cfg, "/accounts/get", {"access_token": access_token})
+        inst_id   = acct_res.get("item", {}).get("institution_id")
+        inst_name = "Unknown"
+        if inst_id:
+            inst_res = _plaid_post(cfg, "/institutions/get_by_id", {
+                "institution_id": inst_id,
+                "country_codes":  ["US"],
+            })
+            inst_name = inst_res.get("institution", {}).get("name", inst_id)
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
+
+    accounts = [{
+        "account_id": a["account_id"],
+        "name":       a.get("name", ""),
+        "mask":       a.get("mask", ""),
+        "type":       a.get("type", ""),
+        "subtype":    a.get("subtype", ""),
+    } for a in acct_res.get("accounts", [])]
+
+    data = _load_plaid_items()
+    # Replace if same item_id already exists (re-auth)
+    data["items"] = [i for i in data["items"] if i["item_id"] != item_id]
+    data["items"].append({
+        "item_id":           item_id,
+        "access_token":      access_token,
+        "institution_id":    inst_id,
+        "institution_name":  inst_name,
+        "accounts":          accounts,
+        "cursor":            "",
+        "connected_at":      _utcnow_iso(),
+        "last_synced_at":    None,
+    })
+    _save_plaid_items(data)
+
+    return jsonify({
+        "ok": True,
+        "item_id": item_id,
+        "institution_name": inst_name,
+        "accounts": accounts,
+    })
+
+
+def _plaid_tx_hash(plaid_id):
+    return hashlib.md5(f"plaid|{plaid_id}".encode()).hexdigest()
+
+
+def _ingest_plaid_tx_bank(tx, account, item, import_id):
+    """Map a Plaid tx onto bank.json schema. Plaid: positive amount = outflow."""
+    amt = float(tx.get("amount") or 0)
+    tx_type = "Debit" if amt >= 0 else "Credit"
+    mask = account.get("mask") or ""
+    label = account.get("name") or item.get("institution_name", "Bank")
+    if mask:
+        label = f"{label} ···{mask}"
+    desc = tx.get("merchant_name") or tx.get("name") or ""
+    return {
+        "hash":             _plaid_tx_hash(tx["transaction_id"]),
+        "id":               str(uuid.uuid4()),
+        "import_id":        import_id,
+        "account_name":     label,
+        "account":          mask,
+        "description":      desc,
+        "tx_date":          tx.get("date") or tx.get("authorized_date") or "",
+        "tx_type":          tx_type,
+        "amount":           abs(amt),
+        "balance":          "",
+        "plaid_id":         tx["transaction_id"],
+        "plaid_account_id": tx["account_id"],
+        "pending":          bool(tx.get("pending")),
+    }
+
+
+def _ingest_plaid_tx_cc(tx, account, item, import_id):
+    """Map a Plaid tx onto apple_card.json schema. Apple convention: positive = purchase."""
+    amt = float(tx.get("amount") or 0)
+    tx_type = "Payment" if amt < 0 else "Purchase"
+    mask = account.get("mask") or ""
+    card_label = account.get("name") or item.get("institution_name", "Credit Card")
+    if mask:
+        card_label = f"{card_label} ···{mask}"
+    desc = tx.get("merchant_name") or tx.get("name") or ""
+    pfc = (tx.get("personal_finance_category") or {}).get("primary") or "Other"
+    return {
+        "hash":             _plaid_tx_hash(tx["transaction_id"]),
+        "id":               str(uuid.uuid4()),
+        "import_id":        import_id,
+        "card_name":        card_label,
+        "source":           "plaid",
+        "tx_date":          tx.get("date") or tx.get("authorized_date") or "",
+        "clearing_date":    tx.get("date") or "",
+        "description":      desc,
+        "merchant":         desc,
+        "category":         pfc.replace("_", " ").title(),
+        "type":             tx_type,
+        "amount":           amt,
+        "purchaser":        "",
+        "plaid_id":         tx["transaction_id"],
+        "plaid_account_id": tx["account_id"],
+        "pending":          bool(tx.get("pending")),
+    }
+
+
+def _ensure_plaid_import_record(data, import_id, label, source_filename):
+    """Make sure an imports[] record exists for this Plaid item. Return ref."""
+    rec = next((i for i in data["imports"] if i["id"] == import_id), None)
+    if rec:
+        return rec
+    rec = {
+        "id":                     import_id,
+        "filename":                source_filename,
+        "account_name":           label,   # bank
+        "card_name":              label,   # cc
+        "source":                 "plaid",
+        "imported_at":            _utcnow_iso(),
+        "new_transactions":       0,
+        "duplicate_transactions": 0,
+    }
+    data["imports"].append(rec)
+    return rec
+
+
+@app.route("/api/plaid/sync", methods=["POST"])
+def plaid_sync():
+    cfg = _plaid_config()
+    if not cfg:
+        return jsonify({"error": "Plaid not configured"}), 400
+
+    body = request.get_json(silent=True) or {}
+    only_item_id = body.get("item_id")  # optional: sync just one
+
+    items_data = _load_plaid_items()
+    items = items_data["items"]
+    if only_item_id:
+        items = [i for i in items if i["item_id"] == only_item_id]
+        if not items:
+            return jsonify({"error": "Item not found"}), 404
+
+    bank_data = _load_bank()
+    cc_data   = _load_apple_card()
+    bank_hashes = {t["hash"] for t in bank_data["transactions"]}
+    cc_hashes   = {t["hash"] for t in cc_data["transactions"]}
+
+    # Index existing plaid txs by plaid_id for modified/removed handling
+    bank_by_plaid = {t.get("plaid_id"): t for t in bank_data["transactions"] if t.get("plaid_id")}
+    cc_by_plaid   = {t.get("plaid_id"): t for t in cc_data["transactions"]   if t.get("plaid_id")}
+
+    results = []
+    for item in items:
+        accts = {a["account_id"]: a for a in item.get("accounts", [])}
+        cursor = item.get("cursor") or ""
+        added_count = modified_count = removed_count = 0
+        loops = 0
+
+        while True:
+            loops += 1
+            if loops > 20:  # safety: max 20 pages
+                break
+            req = {"access_token": item["access_token"], "count": 500}
+            if cursor:
+                req["cursor"] = cursor
+            try:
+                res = _plaid_post(cfg, "/transactions/sync", req)
+            except RuntimeError as e:
+                results.append({"item_id": item["item_id"], "error": str(e)})
+                break
+
+            for tx in res.get("added", []):
+                acct = accts.get(tx["account_id"], {})
+                atype = acct.get("type", "depository")
+                if atype == "credit":
+                    label = (acct.get("name") or item.get("institution_name", "Credit Card"))
+                    if acct.get("mask"):
+                        label += f" ···{acct['mask']}"
+                    rec = _ensure_plaid_import_record(cc_data, item["item_id"], label, f"Plaid · {item.get('institution_name','')}")
+                    new_tx = _ingest_plaid_tx_cc(tx, acct, item, item["item_id"])
+                    if new_tx["hash"] in cc_hashes:
+                        continue
+                    cc_hashes.add(new_tx["hash"])
+                    cc_data["transactions"].append(new_tx)
+                    cc_by_plaid[new_tx["plaid_id"]] = new_tx
+                    rec["new_transactions"] = rec.get("new_transactions", 0) + 1
+                    added_count += 1
+                elif atype == "depository":
+                    label = (acct.get("name") or item.get("institution_name", "Bank"))
+                    if acct.get("mask"):
+                        label += f" ···{acct['mask']}"
+                    rec = _ensure_plaid_import_record(bank_data, item["item_id"], label, f"Plaid · {item.get('institution_name','')}")
+                    new_tx = _ingest_plaid_tx_bank(tx, acct, item, item["item_id"])
+                    if new_tx["hash"] in bank_hashes:
+                        continue
+                    bank_hashes.add(new_tx["hash"])
+                    bank_data["transactions"].append(new_tx)
+                    bank_by_plaid[new_tx["plaid_id"]] = new_tx
+                    rec["new_transactions"] = rec.get("new_transactions", 0) + 1
+                    added_count += 1
+                # else: skip investment/loan/other for now
+
+            for tx in res.get("modified", []):
+                pid = tx["transaction_id"]
+                acct = accts.get(tx["account_id"], {})
+                atype = acct.get("type", "depository")
+                existing = cc_by_plaid.get(pid) if atype == "credit" else bank_by_plaid.get(pid)
+                if not existing:
+                    continue
+                updated = (_ingest_plaid_tx_cc if atype == "credit" else _ingest_plaid_tx_bank)(
+                    tx, acct, item, item["item_id"]
+                )
+                # Preserve id, but update everything else
+                existing.update({k: v for k, v in updated.items() if k != "id"})
+                modified_count += 1
+
+            for tx in res.get("removed", []):
+                pid = tx["transaction_id"]
+                if pid in bank_by_plaid:
+                    bank_data["transactions"] = [t for t in bank_data["transactions"] if t.get("plaid_id") != pid]
+                    bank_by_plaid.pop(pid, None)
+                    removed_count += 1
+                if pid in cc_by_plaid:
+                    cc_data["transactions"] = [t for t in cc_data["transactions"] if t.get("plaid_id") != pid]
+                    cc_by_plaid.pop(pid, None)
+                    removed_count += 1
+
+            cursor = res.get("next_cursor", cursor)
+            if not res.get("has_more"):
+                break
+
+        item["cursor"] = cursor
+        item["last_synced_at"] = _utcnow_iso()
+        results.append({
+            "item_id":          item["item_id"],
+            "institution_name": item.get("institution_name"),
+            "added":            added_count,
+            "modified":         modified_count,
+            "removed":          removed_count,
+        })
+
+    # Plaid may re-add rows the user also has from a CSV import.
+    # Drop Plaid copies whenever a CSV row already covers the same tx.
+    cross_removed = _dedup_bank_cross_source(bank_data)
+
+    _save_bank(bank_data)
+    _save_apple_card(cc_data)
+    _save_plaid_items(items_data)
+    return jsonify({"results": results, "plaid_superseded": cross_removed})
+
+
+@app.route("/api/plaid/items/<item_id>", methods=["DELETE"])
+def plaid_delete_item(item_id):
+    cfg = _plaid_config()
+    data = _load_plaid_items()
+    item = next((i for i in data["items"] if i["item_id"] == item_id), None)
+    if not item:
+        return jsonify({"error": "Not found"}), 404
+
+    # Best-effort: tell Plaid to revoke
+    if cfg:
+        try:
+            _plaid_post(cfg, "/item/remove", {"access_token": item["access_token"]})
+        except RuntimeError:
+            pass
+
+    # Drop transactions tagged with this item's import_id and the import records
+    bank_data = _load_bank()
+    cc_data   = _load_apple_card()
+    n_bank = len(bank_data["transactions"])
+    n_cc   = len(cc_data["transactions"])
+    bank_data["transactions"] = [t for t in bank_data["transactions"] if t.get("import_id") != item_id]
+    bank_data["imports"]      = [i for i in bank_data["imports"]      if i["id"]           != item_id]
+    cc_data["transactions"]   = [t for t in cc_data["transactions"]   if t.get("import_id") != item_id]
+    cc_data["imports"]        = [i for i in cc_data["imports"]        if i["id"]           != item_id]
+    _save_bank(bank_data)
+    _save_apple_card(cc_data)
+
+    data["items"] = [i for i in data["items"] if i["item_id"] != item_id]
+    _save_plaid_items(data)
+
+    return jsonify({
+        "ok": True,
+        "removed_bank_transactions": n_bank - len(bank_data["transactions"]),
+        "removed_cc_transactions":   n_cc   - len(cc_data["transactions"]),
+    })
 
 
 # ── Entry point ────────────────────────────────────────────────────

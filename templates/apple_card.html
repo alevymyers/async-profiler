@@ -6,6 +6,7 @@
 <title>Transactions — Portfolio Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -111,9 +112,18 @@
     display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif;
   }
   .btn-danger:hover { background: rgba(248,113,113,.14); }
+  .priv-btn {
+    padding: 7px 12px; border-radius: var(--r-btn);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-3);
+    font-size: 11px; font-weight: 500; letter-spacing: .04em;
+    cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+    display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif;
+  }
+  .priv-btn:hover { color: var(--text-2); border-color: var(--border-hi, var(--border)); }
+  .priv-btn.active { border-color: rgba(251,191,36,.3); background: rgba(251,191,36,.07); color: #fbbf24; }
 
   /* ── Layout ── */
-  .page { padding: 20px 24px 48px; max-width: 1200px; margin: 0 auto; }
+  .page { padding: 20px 32px 48px; max-width: 1400px; margin: 0 auto; }
   .tab-pane { display: none; }
   .tab-pane.active { display: block; }
 
@@ -152,6 +162,23 @@
   .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 18px; margin-bottom: 16px; }
   .card-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 14px; }
   .bar-hint { font-size: 11px; color: var(--text-3); margin-top: 6px; }
+  .bar-legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 11px; color: var(--text-2);
+    font-family: 'DM Mono', monospace;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .bar-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .bar-legend-swatch {
+    display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  }
+  .bar-legend-line {
+    display: inline-block; width: 14px; height: 0;
+    border-top: 1.5px dashed rgba(251,191,36,.7);
+  }
+  .bar-legend-key { color: var(--text-3); letter-spacing: .04em; text-transform: uppercase; font-size: 10px; font-weight: 600; }
+  .bar-legend-val { color: var(--text-1); }
 
   /* ── Two column ── */
   .two-col { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-bottom: 16px; }
@@ -171,11 +198,15 @@
   .cat-amt { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text-2); min-width: 65px; text-align: right; }
 
   /* ── Donut ── */
-  .donut-wrap { display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .donut-inner { position: relative; width: 200px; height: 200px; }
+  .donut-wrap { display: flex; align-items: center; justify-content: center; padding: 28px; }
+  .donut-inner { position: relative; width: 320px; height: 320px; max-width: 100%; }
   .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-  .donut-total { font-size: 17px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text-1); }
-  .donut-lbl { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+  .donut-total { font-size: 26px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text-1); letter-spacing: -.01em; }
+  .donut-lbl { font-size: 11px; color: var(--text-2); margin-top: 4px; letter-spacing: .04em; text-transform: uppercase; }
+  .donut-back { font-size: 10px; color: var(--accent); margin-top: 6px; opacity: .85; }
+  .cat-title-back { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: color .12s; }
+  .cat-title-back:hover { color: var(--text-1); }
+  .cat-title-back .back-arrow { color: var(--accent); font-size: 13px; }
 
   /* ── Transaction list ── */
   .tx-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
@@ -234,6 +265,7 @@
   .import-source-badge.fidelity { background: rgba(34,211,238,.1);  color: var(--accent); border: 1px solid var(--accent-border); }
   .import-source-badge.chase    { background: rgba(167,139,250,.1); color: #a78bfa;      border: 1px solid rgba(167,139,250,.2); }
   .import-source-badge.bank     { background: rgba(74,222,128,.1);  color: var(--pos);   border: 1px solid rgba(74,222,128,.2); }
+  .import-source-badge.plaid    { background: rgba(99,102,241,.12); color: #818cf8;      border: 1px solid rgba(99,102,241,.25); }
   .import-delete-btn { background: none; border: none; color: var(--text-3); font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: color .1s, background .1s; line-height: 1; }
   .import-delete-btn:hover { color: #f87171; background: rgba(248,113,113,.1); }
 
@@ -391,10 +423,17 @@
   <div class="page-tabs">
     <button class="page-tab active" id="ptab-cc"   onclick="switchTab('cc')">Credit Card</button>
     <button class="page-tab"        id="ptab-bank" onclick="switchTab('bank')">Bank</button>
+    <button class="page-tab"        id="ptab-conn" onclick="switchTab('conn')">Connections</button>
   </div>
   <div class="topbar-right" id="topbarRight">
     <!-- filled by switchTab() -->
   </div>
+  <button id="privBtn" class="priv-btn" onclick="togglePrivacy()" title="Toggle value visibility (H)" style="margin-left:8px">
+    <svg id="privEye" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+    <span id="privLabel">Hide</span>
+  </button>
 </div>
 
 <div class="page">
@@ -437,6 +476,7 @@
       <div class="stat-row">
         <div class="stat-chip"><div class="stat-lbl">Total Spent</div><div class="stat-val" id="cc-statTotal">$0</div><div class="stat-sub" id="cc-statSub"></div></div>
         <div class="stat-chip"><div class="stat-lbl">Avg / Month</div><div class="stat-val" id="cc-statAvg">$0</div><div class="stat-sub" id="cc-statAvgSub"></div></div>
+        <div class="stat-chip"><div class="stat-lbl">Median / Month</div><div class="stat-val" id="cc-statMedian">$0</div><div class="stat-sub" id="cc-statMedianSub"></div></div>
         <div class="stat-chip"><div class="stat-lbl">Transactions</div><div class="stat-val" id="cc-statCount">0</div><div class="stat-sub" id="cc-statCountSub"></div></div>
         <div class="stat-chip"><div class="stat-lbl">Avg Transaction</div><div class="stat-val" id="cc-statAvgTx">$0</div><div class="stat-sub"></div></div>
       </div>
@@ -459,7 +499,8 @@
       <div class="chart-card">
         <div class="card-title">Monthly Spending</div>
         <canvas id="cc-barChart" height="90"></canvas>
-        <div class="bar-hint">Click any bar to jump to that month's transactions</div>
+        <div id="cc-barLegend" class="bar-legend"></div>
+        <div class="bar-hint">Click any bar to jump to that month's transactions · Median line + outlier highlights respect card/category/payee filters</div>
       </div>
       <div class="chart-card" id="cc-velocityCard">
         <div class="card-title">30-Day Spend Velocity</div>
@@ -479,7 +520,7 @@
           <div class="donut-wrap">
             <div class="donut-inner">
               <canvas id="cc-donut"></canvas>
-              <div class="donut-center"><div class="donut-total" id="cc-donutTotal">$0</div><div class="donut-lbl">total</div></div>
+              <div class="donut-center"><div class="donut-total" id="cc-donutTotal">$0</div><div class="donut-lbl" id="cc-donutLbl">total</div><div class="donut-back" id="cc-donutBack" style="display:none">click to go back</div></div>
             </div>
           </div>
         </div>
@@ -558,7 +599,7 @@
           <div class="donut-wrap">
             <div class="donut-inner">
               <canvas id="bk-donut"></canvas>
-              <div class="donut-center"><div class="donut-total" id="bk-donutTotal">$0</div><div class="donut-lbl">debits</div></div>
+              <div class="donut-center"><div class="donut-total" id="bk-donutTotal">$0</div><div class="donut-lbl" id="bk-donutLbl">debits</div><div class="donut-back" id="bk-donutBack" style="display:none">click to go back</div></div>
             </div>
           </div>
         </div>
@@ -583,6 +624,40 @@
         <div class="scrollable" id="bk-txList"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ══ CONNECTIONS TAB ════════════════════════════════════════════ -->
+  <div class="tab-pane" id="pane-conn">
+
+    <div class="imports-panel" style="margin-bottom:16px">
+      <div class="imports-panel-hdr" style="cursor:default">
+        <span class="imports-panel-title">Bank &amp; Card Connections (Plaid)</span>
+        <span id="conn-env-pill" class="import-source-badge plaid" style="display:none;font-family:'DM Mono',monospace"></span>
+      </div>
+      <div id="conn-not-configured" style="padding:18px 16px;border-top:1px solid var(--border);display:none">
+        <div style="font-size:13px;font-weight:600;color:var(--text-1);margin-bottom:6px">Plaid not configured</div>
+        <div style="font-size:12px;color:var(--text-3)">Create <code style="background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:'DM Mono',monospace;font-size:11px">data/plaid_config.json</code> with your <code>client_id</code>, <code>secret</code>, and <code>env</code>. Then restart the app.</div>
+        <div id="conn-config-error" style="display:none;margin-top:10px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:#fca5a5;font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;border-radius:6px"></div>
+      </div>
+      <div id="conn-configured" style="padding:14px 16px;border-top:1px solid var(--border);display:none;gap:8px;flex-wrap:wrap" class="flex">
+        <button class="btn-primary" id="conn-connect-btn" onclick="ccPlaidConnect()">+ Connect bank</button>
+        <button class="btn-ghost" id="conn-sync-btn" onclick="ccPlaidSyncAll()">Sync all</button>
+      </div>
+    </div>
+
+    <div class="imports-panel" id="conn-items-card" style="display:none">
+      <div class="imports-panel-hdr" style="cursor:default">
+        <span class="imports-panel-title">Connected Institutions</span>
+        <span id="conn-items-count" class="imports-count-badge">0</span>
+      </div>
+      <div id="conn-items-list"></div>
+    </div>
+
+    <div id="conn-items-empty" class="import-zone" style="display:none;padding:36px 24px">
+      <div class="import-zone-title">No institutions connected</div>
+      <div class="import-zone-sub">Click “Connect bank” above to link Chase, Capital One, etc. via Plaid.</div>
+    </div>
+
   </div>
 
 </div><!-- /page -->
@@ -612,14 +687,21 @@ const CATS = {
 // Order matters: first match wins.
 const MERCHANT_CATS = {
   // ── Amazon ─────────────────────────────────────────────────────
+  // Apple Card tags most Amazon charges as "General Merchandise" rather
+  // than "Other", so resolveCategory must run on every row (not just
+  // "Other") for these to reach Amazon. See ccLoad.
   "Amazon": [
     "amazon","amzn","whole foods","wholefds",
   ],
   // ── Apple ──────────────────────────────────────────────────────
-  // "apple" alone is broad — catches APPLE INC, APPLE SERVICES, etc.
-  // Listed before food so we can add applebee to food if needed.
+  // Bare "apple" matches Apple Caffe (Apple's employee cafeteria),
+  // Apple Wellness Center, Apple Photo Booth, etc. Use specific Apple Inc
+  // billing patterns instead. Apple's own cafés stay as Restaurants where
+  // Apple Card categorized them.
   "Apple": [
-    "apple","itunes",
+    "apple.com","apple inc","apple services","apple store","apple cash",
+    "apple music","apple tv","apple pay","apple care","apple pencil",
+    "icloud","itunes",
   ],
   // ── Interest / dividends ───────────────────────────────────────
   "Interest": [
@@ -656,17 +738,24 @@ const MERCHANT_CATS = {
     "duolingo","headspace",
   ],
   // ── Bills & Utilities ──────────────────────────────────────────
+  // Short utility acronyms (att, pge, sce) avoided as bare keywords —
+  // they collide with hyAttCom, Page, Pisces, Seattle, etc. Use specific
+  // billing-format variants instead.
   "Bills & Utilities": [
-    "pg&e","pge","pacific gas","con ed","coned","national grid",
-    "duke energy","dominion energy","southern california edison","sce",
+    "pg&e","pg & e","pge bill","pge pymt","pge payment","pacific gas",
+    "con ed","coned","national grid",
+    "duke energy","dominion energy","southern california edison",
+    "sce&g","sce-web","sce web","sce pymt","sce payment",
     "georgia power","xcel energy","centerpoint","consumers energy",
     "utility","util paymt","util payment","electric bill","water bill",
     "city of austin","city of dallas","city of houston","city of san antonio",
     "city of new york","city of chicago","city of los angeles","city of seattle",
     "waste management","republic services",
-    // Carriers — short forms banks actually print
+    // Carriers — match specific billing formats, not bare carrier acronyms
     "verizon","vzw","vzwrlss",
-    "at&t","att","tmobile","t-mobile","sprint",
+    "at&t","att*bill","att payment","att autopay","att mobility",
+    "att uverse","att internet","attwireless","att wireless",
+    "tmobile","t-mobile","sprint pcs","sprint wireless",
     "comcast","xfinity","spectrum","cox comm","cox cable",
     "dish network","directv","frontier comm","optimum","suddenlink",
   ],
@@ -688,8 +777,9 @@ const MERCHANT_CATS = {
     "bowling","topgolf","dave & buster",
   ],
   // ── Shopping (general retail) ───────────────────────────────────
+  // Avoid bare "rei" — matches "baeckeREI" etc. Use REI-specific formats.
   "Shopping": [
-    "rei","ikea","j.crew","jcrew","gap ","old navy","h&m","zara",
+    "rei.com","rei #","rei store"," rei ","ikea","j.crew","jcrew","gap ","old navy","h&m","zara",
     "nordstrom","bloomingdale","macy","tj maxx","t.j. maxx","marshalls","ross dress",
     "bed bath","home depot","lowe's","lowes","dji","best buy","b&h photo",
     "michael kors","coach","kate spade","lululemon","patagonia","columbia sport",
@@ -712,10 +802,15 @@ const MERCHANT_CATS = {
     "walmart","wal-mart","target","costco","sam's club",
   ],
   // ── Gas ────────────────────────────────────────────────────────
+  // Avoid bare "arco" — matches BarcollO, ARCO di Tito (Roman arch), etc.
+  // ARCO gas charges normally print with "AMPM" or a "#"-prefixed store id.
+  // Include 7-Eleven here (gas + convenience).
   "Gas": [
     "shell","chevron","exxon","mobil","bp ","sunoco","speedway",
     "marathon petro","casey","circle k","wawa","sheetz",
-    "kwik trip","pilot flying","love's travel","racetrac","arco","valero",
+    "kwik trip","pilot flying","love's travel","racetrac",
+    "arco ampm","arco #","arco gas"," arco ","valero",
+    "7-eleven","7 eleven","7-11",
     "one gas","atmos energy","centerpoint energy","texas gas","southwest gas",
     "nicor gas","peoples gas","laclede gas","piedmont natural",
   ],
@@ -734,13 +829,18 @@ const MERCHANT_CATS = {
     " hotel ","hotel ",
   ],
   // ── Car Rental ─────────────────────────────────────────────────
+  // Avoid bare "avis" — matches "ETOLLAVIS" (toll service). Use Avis-
+  // specific rental keywords.
   "Car Rental": [
-    "hertz","avis","budget rent","enterprise rent","national car","alamo rent",
-    "dollar rent","thrifty","sixt","zipcar","turo",
+    "hertz","avis rent","avis car","avis-car"," avis ",
+    "budget rent","enterprise rent","national car","alamo rent",
+    "dollar rent","thrifty","sixt","zipcar","turo","u-haul","uhaul",
   ],
   // ── Airlines ───────────────────────────────────────────────────
+  // Avoid bare "ual " — matches "rit*ual* coffee". Use specific UAL formats.
   "Airlines": [
-    "united airlines","ual ","southwest airlines","southwest air","delta air",
+    "united airlines","ual.com","ual ticket","united air",
+    "southwest airlines","southwest air","delta air",
     "american airlines","american 0","jetblue","alaska airlines","alaska ai",
     "frontier airlines","spirit airlines","allegiant air","sun country","hawaiian airlines",
     "air canada","british airways","lufthansa","air france","klm","emirates",
@@ -755,18 +855,32 @@ const MERCHANT_CATS = {
   ],
 };
 
-// Normalize merchant to a canonical category, overriding the stored one if a whitelist matches
-function resolveCategory(merchant, storedCat) {
+// Normalize a merchant string → canonical category.
+// Pass 1: any keyword vs merchant column (the trusted, normalized name).
+// Pass 2: only URL/billing-format keywords (containing . * # &) vs description.
+// This catches "APPLE.COM/US" descriptions on rows whose merchant is just
+// "Apple", without picking up "spectrum" inside a toll address or "ana "
+// inside "Montana".
+const URL_TOKEN = /[.*#&]/;
+function resolveCategory(merchant, description, storedCat) {
   const m = (merchant || "").toLowerCase();
   for (const [cat, keywords] of Object.entries(MERCHANT_CATS)) {
     if (keywords.some(k => m.includes(k))) return cat;
+  }
+  const d = (description || "").toLowerCase();
+  if (d && d !== m) {
+    for (const [cat, keywords] of Object.entries(MERCHANT_CATS)) {
+      if (keywords.some(k => URL_TOKEN.test(k) && d.includes(k))) return cat;
+    }
   }
   return storedCat || "Other";
 }
 
 // Apply resolveCategory to a transaction array in place
 function applyMerchantCategories(txs) {
-  txs.forEach(t => { t.category = resolveCategory(t.merchant || t.description, t.category); });
+  txs.forEach(t => {
+    t.category = resolveCategory(t.merchant, t.description, t.category);
+  });
 }
 
 // Call bkLogUnmatched() in the browser console to see which bank descriptions
@@ -851,6 +965,10 @@ const CC_CAT_NORM = {
   "Healthcare":                 "Insurance",
   // Apple Card internal entries (Daily Cash adjustments, etc.)
   "Debit":                      "Other",
+  // Apple Card catch-all buckets
+  "General Merchandise":        "Shopping",
+  "General Services":           "Services",
+  "Food And Drink":             "Food & Drink",
 };
 // Only null/empty categories fall into "Other"; known variants are normalized
 function ccEffCat(t) {
@@ -875,8 +993,22 @@ function monthKey(tx) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
 }
 function yearOf(tx)  { return parseDate(tx.tx_date).getFullYear(); }
-const fmtUSD      = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Math.abs(n));
-const fmtUSDShort = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(Math.abs(n));
+let privacyMode = false;
+const fmtUSD      = n => privacyMode ? "••••••" : new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Math.abs(n));
+const fmtUSDShort = n => privacyMode ? "••••••" : new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(Math.abs(n));
+function togglePrivacy() {
+  privacyMode = !privacyMode;
+  const btn = document.getElementById("privBtn");
+  const lbl = document.getElementById("privLabel");
+  const ico = document.getElementById("privEye");
+  if (btn) btn.classList.toggle("active", privacyMode);
+  if (lbl) lbl.textContent = privacyMode ? "Show" : "Hide";
+  if (ico) ico.innerHTML = privacyMode
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  ccRender();
+  bkRender();
+}
 function fmtMonthShort(k)  { const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("en-US",{month:"short",year:"2-digit"}); }
 function fmtMonthFull(k)   { const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("en-US",{month:"long",year:"numeric"}); }
 function fmtDateHdr(s) { return parseDate(s).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"2-digit"}); }
@@ -888,15 +1020,159 @@ function toast(msg) {
   setTimeout(() => el.classList.remove("show"), 2600);
 }
 
+// ── Plaid: connections tab ────────────────────────────────────
+let ccPlaidStatus = null, ccPlaidBusy = false;
+
+function _ccEscapeHTML(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function _ccFmtSyncTime(iso) {
+  if (!iso) return "never";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US",{month:"short",day:"numeric"}) + " " +
+         d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+}
+
+async function ccPlaidLoadStatus() {
+  try {
+    ccPlaidStatus = await fetch("/api/plaid/status").then(r=>r.json());
+  } catch(e) {
+    ccPlaidStatus = {configured:false, items:[]};
+  }
+  ccPlaidRender();
+}
+
+function ccPlaidRender() {
+  const s = ccPlaidStatus || {configured:false, items:[]};
+  document.getElementById("conn-not-configured").style.display = s.configured ? "none" : "block";
+  document.getElementById("conn-configured").style.display     = s.configured ? "flex" : "none";
+
+  const pill = document.getElementById("conn-env-pill");
+  if (s.configured && s.env) { pill.textContent = s.env; pill.style.display = "inline-block"; }
+  else pill.style.display = "none";
+
+  const errEl = document.getElementById("conn-config-error");
+  if (s.config_error) { errEl.textContent = "Config parse error: " + s.config_error; errEl.style.display = "block"; }
+  else errEl.style.display = "none";
+
+  const items = s.items || [];
+  document.getElementById("conn-items-card").style.display  = (s.configured && items.length) ? "block" : "none";
+  document.getElementById("conn-items-empty").style.display = (s.configured && !items.length) ? "block" : "none";
+  document.getElementById("conn-items-count").textContent = items.length;
+
+  const list = document.getElementById("conn-items-list");
+  list.innerHTML = items.map(it => {
+    const accts = (it.accounts||[]).map(a => {
+      const mask = a.mask ? ` ···${a.mask}` : "";
+      const sub  = a.subtype ? ` · ${a.subtype}` : "";
+      return `<div style="font-size:11px;color:var(--text-3)">${_ccEscapeHTML(a.name||"Account")}${_ccEscapeHTML(mask)} <span style="color:var(--text-3);opacity:.7">${_ccEscapeHTML((a.type||"").toUpperCase())}${_ccEscapeHTML(sub)}</span></div>`;
+    }).join("");
+    return `
+      <div class="import-file-row" style="align-items:flex-start;padding:12px 16px">
+        <div style="width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;margin-top:6px"></div>
+        <div class="import-file-info">
+          <div class="import-file-name">${_ccEscapeHTML(it.institution_name||"Unknown")}</div>
+          <div style="margin-top:4px">${accts || '<div style="font-size:11px;color:var(--text-3)">No accounts</div>'}</div>
+          <div style="font-size:10px;color:var(--text-3);opacity:.7;margin-top:6px">Last synced: ${_ccEscapeHTML(_ccFmtSyncTime(it.last_synced_at))}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn-ghost" style="padding:4px 10px;font-size:11px" onclick="ccPlaidSyncOne('${it.item_id}')">Sync</button>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:11px" onclick="ccPlaidConnect('${it.item_id}')">Reconnect</button>
+          <button class="btn-danger" style="padding:4px 10px;font-size:11px" onclick="ccPlaidDisconnect('${it.item_id}')">Remove</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function ccPlaidConnect(itemId) {
+  if (ccPlaidBusy) return;
+  ccPlaidBusy = true;
+  const btn = document.getElementById("conn-connect-btn");
+  if (btn) btn.disabled = true;
+  try {
+    if (typeof Plaid === "undefined") { toast("Plaid SDK failed to load."); return; }
+    const body = itemId ? {item_id: itemId} : {};
+    const res = await fetch("/api/plaid/link-token", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+    if (res.error) { toast("Plaid: " + res.error); return; }
+    sessionStorage.setItem("plaid_link_token", res.link_token);
+    const handler = Plaid.create({
+      token: res.link_token,
+      onSuccess: async (public_token) => {
+        sessionStorage.removeItem("plaid_link_token");
+        const r = await fetch("/api/plaid/exchange", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({public_token})}).then(r=>r.json());
+        if (r.error) { toast("Exchange failed: " + r.error); return; }
+        toast("Connected " + (r.institution_name || "institution"));
+        await ccPlaidLoadStatus();
+        await ccPlaidSyncOne(r.item_id);
+        // Reload transactions so newly-synced txs show up in CC/Bank panes
+        if (typeof ccLoadAll === "function") ccLoadAll();
+        if (typeof bkLoadAll === "function") bkLoadAll();
+      },
+      onExit: (err) => {
+        sessionStorage.removeItem("plaid_link_token");
+        if (err) toast("Plaid: " + (err.error_message || err.error_code || "cancelled"));
+      },
+    });
+    handler.open();
+  } finally {
+    ccPlaidBusy = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function ccPlaidSyncOne(itemId) {
+  const btn = document.getElementById("conn-sync-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/plaid/sync", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({item_id: itemId})}).then(r=>r.json());
+    if (res.error) { toast("Sync failed: " + res.error); return; }
+    const r = (res.results || [])[0] || {};
+    if (r.error) toast("Sync: " + r.error);
+    else toast(`Synced: +${r.added||0} new, ${r.modified||0} updated, ${r.removed||0} removed`);
+    await ccPlaidLoadStatus();
+    if (typeof ccLoad === "function") ccLoad();
+    if (typeof bkLoad === "function") bkLoad();
+  } finally { if (btn) btn.disabled = false; }
+}
+
+async function ccPlaidSyncAll() {
+  const btn = document.getElementById("conn-sync-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/plaid/sync", {method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.json());
+    if (res.error) { toast("Sync failed: " + res.error); return; }
+    const totals = (res.results||[]).reduce((a,r)=>{ if(r.error) return a; a.added+=r.added||0; a.modified+=r.modified||0; a.removed+=r.removed||0; return a; },{added:0,modified:0,removed:0});
+    const err = (res.results||[]).find(r=>r.error);
+    if (err) toast("Some items failed: " + err.error);
+    else toast(`Synced: +${totals.added} new, ${totals.modified} updated, ${totals.removed} removed`);
+    await ccPlaidLoadStatus();
+    if (typeof ccLoad === "function") ccLoad();
+    if (typeof bkLoad === "function") bkLoad();
+  } finally { if (btn) btn.disabled = false; }
+}
+
+async function ccPlaidDisconnect(itemId) {
+  const item = (ccPlaidStatus?.items || []).find(i => i.item_id === itemId);
+  const name = item?.institution_name || "this institution";
+  if (!confirm(`Remove ${name} and delete its imported transactions?`)) return;
+  const r = await fetch("/api/plaid/items/" + encodeURIComponent(itemId), {method:"DELETE"}).then(r=>r.json());
+  if (r.error) { toast("Remove failed: " + r.error); return; }
+  toast(`Removed. ${r.removed_bank_transactions||0} bank + ${r.removed_cc_transactions||0} CC txs deleted.`);
+  await ccPlaidLoadStatus();
+  if (typeof ccLoadAll === "function") ccLoadAll();
+  if (typeof bkLoadAll === "function") bkLoadAll();
+}
+
 // ── Page tab switching ────────────────────────────────────────
 let currentTab = "cc";
 function switchTab(tab) {
   currentTab = tab;
-  document.getElementById("pane-cc").classList.toggle("active", tab === "cc");
-  document.getElementById("pane-bank").classList.toggle("active", tab === "bank");
-  document.getElementById("ptab-cc").classList.toggle("active", tab === "cc");
-  document.getElementById("ptab-bank").classList.toggle("active", tab === "bank");
+  ["cc","bank","conn"].forEach(t => {
+    document.getElementById("pane-"+t).classList.toggle("active", tab === t);
+    document.getElementById("ptab-"+t).classList.toggle("active", tab === t);
+  });
   updateTopbarButtons();
+  if (tab === "conn") ccPlaidLoadStatus();
 }
 
 function updateTopbarButtons() {
@@ -906,11 +1182,13 @@ function updateTopbarButtons() {
     r.innerHTML = `
       <button class="btn-primary" onclick="document.getElementById('cc-fileInput').click()">+ Import CSV</button>
       ${hasCc ? '<button class="btn-danger" onclick="ccClearAll()">Clear</button>' : ''}`;
-  } else {
+  } else if (currentTab === "bank") {
     const hasBk = bkTx.length > 0;
     r.innerHTML = `
       <button class="btn-primary" onclick="document.getElementById('bk-fileInput').click()">+ Import CSV</button>
       ${hasBk ? '<button class="btn-danger" onclick="bkClearAll()">Clear</button>' : ''}`;
+  } else {
+    r.innerHTML = "";
   }
 }
 
@@ -989,7 +1267,8 @@ function ccFiltered() {
     (ccCard==="__all__" || txCardName(t)===ccCard) &&
     ccRangeFilter(t) &&
     (ccCat==="__all__" || ccEffCat(t)===ccCat) &&
-    (ccFreqMerchant===null || (t.merchant||t.description)===ccFreqMerchant)
+    (ccFreqMerchant===null || (t.merchant||t.description)===ccFreqMerchant) &&
+    (ccMerchant===null || (t.merchant||t.description)===ccMerchant)
   ));
 }
 
@@ -997,11 +1276,11 @@ async function ccLoad() {
   const res = await fetch("/api/apple-card/transactions");
   const d = await res.json();
   ccTx = d.transactions || [];
-  // Apply merchant keyword matching for transactions Apple Card left as "Other"
+  // Always run the merchant whitelist. When it matches, it overrides
+  // Apple Card's own label (e.g. so Amazon rows tagged "General Merchandise"
+  // land in Amazon). When nothing matches, the stored category is kept.
   ccTx.forEach(t => {
-    if (!t.category || t.category === "Other") {
-      t.category = resolveCategory(t.merchant || t.description, t.category);
-    }
+    t.category = resolveCategory(t.merchant, t.description, t.category);
   });
   ccImports = d.imports || [];
   ccRender();
@@ -1017,7 +1296,7 @@ function ccRenderImports() {
         <div class="import-file-name">${imp.filename}</div>
         <div class="import-file-meta">${imp.card_name||""}${imp.new_transactions!=null?` · ${imp.new_transactions} transactions`:""} · ${fmtImportDate(imp.imported_at)}</div>
       </div>
-      <span class="import-source-badge ${imp.source||"apple"}">${imp.source==="fidelity"?"Fidelity":imp.source==="chase"?"Chase":"Apple Card"}</span>
+      <span class="import-source-badge ${imp.source||"apple"}">${imp.source==="fidelity"?"Fidelity":imp.source==="chase"?"Chase":imp.source==="plaid"?"Plaid":"Apple Card"}</span>
       <button class="import-delete-btn" title="Remove this import" onclick="ccDeleteImport('${imp.id}')">×</button>
     </div>`).join("");
   el.innerHTML = `<div class="imports-panel">
@@ -1037,7 +1316,7 @@ function ccRenderCardTabs() {
   if (cards.length <= 1) { el.innerHTML = ""; return; }
   const all = ["__all__", ...cards];
   el.innerHTML = `<div class="card-tab-bar">
-    ${all.map(c => `<button class="card-tab${ccCard===c?" active":""}" onclick="ccCard='${c}';ccCat='__all__';ccFreqMerchant=null;ccRender()">${c==="__all__"?"All Cards":c}</button>`).join("")}
+    ${all.map(c => `<button class="card-tab${ccCard===c?" active":""}" onclick="ccCard='${c}';ccCat='__all__';ccMerchant=null;ccFreqMerchant=null;ccRender()">${c==="__all__"?"All Cards":c}</button>`).join("")}
   </div>`;
 }
 
@@ -1057,20 +1336,13 @@ function ccRender() {
   if (!has) return;
   ccRenderCardTabs();
   buildTolBtns("cc", ccRecurTol, val => { ccRecurTol = val; ccRender(); });
-  const ccRecurRaw = detectRecurring(
+  const ccRecur = detectRecurring(
     ccTx.filter(t => t.amount > 0 && (ccCard==="__all__"||txCardName(t)===ccCard)),
     t => t.merchant || t.description || "Unknown",
     t => t.amount,
     t => catColor(t.category),
     ccRecurTol
   );
-  const ccRecur = ccRecurRaw
-    .filter(g => longestConsecutiveMonths(g.txs) >= 6)
-    .sort((a, b) => {
-      const lastA = Math.max(...a.txs.map(t => parseDate(t.tx_date).getTime()));
-      const lastB = Math.max(...b.txs.map(t => parseDate(t.tx_date).getTime()));
-      return lastB - lastA;
-    });
   renderRecurring("cc", ccRecur, null);
   ccBuildRangeFilter();
   ccBuildCatFilter();
@@ -1114,13 +1386,13 @@ function ccBuildCatFilter() {
   const allBtn = document.createElement("button");
   allBtn.className = "cat-pill" + (ccCat==="__all__" ? " active" : "");
   allBtn.textContent = "All";
-  allBtn.onclick = () => { ccCat="__all__"; ccRender(); };
+  allBtn.onclick = () => { ccCat="__all__"; ccMerchant=null; ccRender(); };
   bar.appendChild(allBtn);
   cats.forEach(cat => {
     const b = document.createElement("button");
     b.className = "cat-pill" + (ccCat===cat ? " active" : "");
     b.innerHTML = `<span class="cdot" style="background:${catColor(cat)}"></span>${cat}`;
-    b.onclick = () => { ccCat = ccCat===cat ? "__all__" : cat; ccRender(); };
+    b.onclick = () => { ccCat = ccCat===cat ? "__all__" : cat; ccMerchant=null; ccRender(); };
     bar.appendChild(b);
   });
   if (!cats.includes(ccCat) && ccCat!=="__all__") ccCat = "__all__";
@@ -1135,22 +1407,120 @@ function ccRangeLabel() {
   return "All Time";
 }
 
+// Monthly totals across full history (card/cat/merchant filters applied; range NOT applied).
+// This is the baseline for the median / "is this month normal" comparison.
+function ccMonthlyHistory() {
+  const totals = {};
+  ccTx.forEach(t => {
+    if (t.amount <= 0) return;
+    if (ccCard!=="__all__" && txCardName(t)!==ccCard) return;
+    if (ccCat !=="__all__" && ccEffCat(t)  !==ccCat ) return;
+    if (ccFreqMerchant!==null && (t.merchant||t.description)!==ccFreqMerchant) return;
+    const k = monthKey(t);
+    totals[k] = (totals[k]||0) + t.amount;
+  });
+  return totals;
+}
+
+function ccQuantile(sorted, p) {
+  if (!sorted.length) return 0;
+  const i = p * (sorted.length - 1);
+  const lo = Math.floor(i), hi = Math.ceil(i);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+
+function ccMonthlyStats() {
+  const totals = ccMonthlyHistory();
+  const vals = Object.values(totals).sort((a,b) => a - b);
+  if (!vals.length) {
+    return { median:0, q1:0, q3:0, iqr:0, hi:Infinity, lo:0, count:0, totals };
+  }
+  const q1 = ccQuantile(vals, 0.25);
+  const median = ccQuantile(vals, 0.5);
+  const q3 = ccQuantile(vals, 0.75);
+  const iqr = q3 - q1;
+  return {
+    median, q1, q3, iqr,
+    hi: q3 + 1.5 * iqr,
+    lo: Math.max(0, q1 - 1.5 * iqr),
+    count: vals.length,
+    totals,
+  };
+}
+
+// Classify a month's spend relative to the IQR-based fences.
+// Needs at least 4 months of history to be meaningful.
+function ccOutlierClass(v, stats) {
+  if (stats.count < 4 || !v) return "normal";
+  if (v > stats.hi) return "high";
+  if (v < stats.lo) return "low";
+  return "normal";
+}
+
 function ccRenderStats() {
   const tx = ccFiltered();
   const total = tx.reduce((s,t) => s+t.amount, 0);
   const months = new Set(tx.map(monthKey));
   const avg = months.size > 0 ? total/months.size : 0;
+  const stats = ccMonthlyStats();
+
   document.getElementById("cc-statTotal").textContent = fmtUSDShort(total);
   document.getElementById("cc-statSub").textContent = ccRangeLabel();
   document.getElementById("cc-statAvg").textContent = fmtUSDShort(avg);
   document.getElementById("cc-statAvgSub").textContent = `over ${months.size} month${months.size!==1?"s":""}`;
+
+  const medEl    = document.getElementById("cc-statMedian");
+  const medSubEl = document.getElementById("cc-statMedianSub");
+  medEl.textContent = fmtUSDShort(stats.median);
+  if (stats.count >= 4) {
+    medSubEl.textContent = `typical ${fmtUSDShort(stats.q1)}–${fmtUSDShort(stats.q3)}`;
+  } else if (stats.count > 0) {
+    medSubEl.textContent = `${stats.count} month${stats.count!==1?"s":""} of history`;
+  } else {
+    medSubEl.textContent = "no history";
+  }
+
   document.getElementById("cc-statCount").textContent = tx.length;
   document.getElementById("cc-statCountSub").textContent = `${months.size} month${months.size!==1?"s":""}`;
   document.getElementById("cc-statAvgTx").textContent = tx.length ? fmtUSD(total/tx.length) : "$0";
 }
 
+const CC_BAR_COLORS = {
+  normal: { fill: "rgba(34,211,238,.15)", border: "rgba(34,211,238,.4)" },
+  high:   { fill: "rgba(248,113,113,.32)", border: "rgba(248,113,113,.75)" },
+  low:    { fill: "rgba(74,222,128,.28)",  border: "rgba(74,222,128,.65)" },
+  sel:    { fill: "rgba(34,211,238,.5)",  border: "rgba(34,211,238,.9)" },
+};
+
+// Chart.js plugin: draw the historical-median reference line across the bar chart.
+const ccMedianLinePlugin = {
+  id: "ccMedianLine",
+  afterDatasetsDraw(chart, _args, opts) {
+    const v = opts && opts.value;
+    if (!v || !isFinite(v)) return;
+    const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+    const py = y.getPixelForValue(v);
+    if (py < y.top || py > y.bottom) return;
+    ctx.save();
+    ctx.strokeStyle = "rgba(251,191,36,.7)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(251,191,36,.85)";
+    ctx.font = "10px 'DM Mono', monospace";
+    ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+    ctx.fillText(`median ${privacyMode?"":"$"+(v>=1000?(v/1000).toFixed(1)+"k":Math.round(v))}`, right - 4, py - 2);
+    ctx.restore();
+  },
+};
+
 function ccRenderBar() {
-  const src = ccPurchases(ccTx.filter(ccRangeFilter));
+  const src = ccPurchases(ccTx.filter(t =>
+    (ccCard==="__all__" || txCardName(t)===ccCard) &&
+    (ccFreqMerchant===null || (t.merchant||t.description)===ccFreqMerchant) &&
+    ccRangeFilter(t)
+  ));
   const byMonth = {};
   src.forEach(t => {
     if (ccCat !== "__all__" && ccEffCat(t) !== ccCat) return;
@@ -1158,25 +1528,56 @@ function ccRenderBar() {
   });
   const keys = Object.keys(byMonth).sort();
   const selectedIdx = /^\d{4}-\d{2}$/.test(ccRange) ? keys.indexOf(ccRange) : -1;
-  const colors = keys.map((k,i) => i===selectedIdx ? "rgba(34,211,238,.5)" : "rgba(34,211,238,.15)");
-  const borders= keys.map((k,i) => i===selectedIdx ? "rgba(34,211,238,.9)" : "rgba(34,211,238,.4)");
+  const stats = ccMonthlyStats();
+  const classes = keys.map(k => ccOutlierClass(byMonth[k], stats));
+  const colors  = keys.map((k,i) => (i===selectedIdx ? CC_BAR_COLORS.sel : CC_BAR_COLORS[classes[i]]).fill);
+  const borders = keys.map((k,i) => (i===selectedIdx ? CC_BAR_COLORS.sel : CC_BAR_COLORS[classes[i]]).border);
+
+  const legend = document.getElementById("cc-barLegend");
+  if (legend) {
+    const hasHigh = classes.includes("high");
+    const hasLow  = classes.includes("low");
+    const parts = [];
+    if (stats.median) parts.push(`<span class="bar-legend-item"><span class="bar-legend-line"></span><span class="bar-legend-key">Median</span><span class="bar-legend-val">${fmtUSDShort(stats.median)}</span></span>`);
+    if (stats.count >= 4) parts.push(`<span class="bar-legend-item"><span class="bar-legend-key">Typical</span><span class="bar-legend-val">${fmtUSDShort(stats.q1)}–${fmtUSDShort(stats.q3)}</span></span>`);
+    if (hasHigh) parts.push(`<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${CC_BAR_COLORS.high.fill};border:1px solid ${CC_BAR_COLORS.high.border}"></span><span class="bar-legend-key">High outlier</span><span class="bar-legend-val">&gt; ${fmtUSDShort(stats.hi)}</span></span>`);
+    if (hasLow)  parts.push(`<span class="bar-legend-item"><span class="bar-legend-swatch" style="background:${CC_BAR_COLORS.low.fill};border:1px solid ${CC_BAR_COLORS.low.border}"></span><span class="bar-legend-key">Unusually low</span><span class="bar-legend-val">&lt; ${fmtUSDShort(stats.lo)}</span></span>`);
+    if (stats.count > 0 && stats.count < 4) parts.push(`<span class="bar-legend-item"><span class="bar-legend-key">Outlier flags</span><span class="bar-legend-val">need 4+ months</span></span>`);
+    legend.innerHTML = parts.join("");
+    legend.style.display = parts.length ? "" : "none";
+  }
 
   if (ccBar) ccBar.destroy();
   ccBar = new Chart(document.getElementById("cc-barChart").getContext("2d"), {
     type: "bar",
     data: {
       labels: keys.map(fmtMonthShort),
-      datasets: [{ data: keys.map(k=>byMonth[k]), backgroundColor: colors, hoverBackgroundColor: "rgba(34,211,238,.35)", borderColor: borders, borderWidth: 1, borderRadius: 4 }]
+      datasets: [{ data: keys.map(k=>byMonth[k]), backgroundColor: colors, hoverBackgroundColor: colors.map(()=>"rgba(34,211,238,.35)"), borderColor: borders, borderWidth: 1, borderRadius: 4 }]
     },
     options: {
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => ` ${fmtUSD(c.raw)}`, title: c => fmtMonthFull(keys[c[0].dataIndex]) } }
+        ccMedianLine: { value: stats.median },
+        tooltip: {
+          callbacks: {
+            title: c => fmtMonthFull(keys[c[0].dataIndex]),
+            label: c => ` ${fmtUSD(c.raw)}`,
+            afterLabel: c => {
+              if (!stats.median) return "";
+              const v = c.raw;
+              const pct = (v - stats.median) / stats.median * 100;
+              const sign = pct >= 0 ? "+" : "";
+              const cls = ccOutlierClass(v, stats);
+              const flag = cls === "high" ? " · high outlier" : cls === "low" ? " · unusually low" : Math.abs(pct) < 10 ? " · normal" : "";
+              return ` ${sign}${pct.toFixed(0)}% vs median${flag}`;
+            }
+          }
+        }
       },
       scales: {
         x: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11}} },
-        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11}, callback:v=>"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
+        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11}, callback:v=>privacyMode?"":"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
       },
       onClick(evt, els) {
         if (!els.length) return;
@@ -1186,7 +1587,8 @@ function ccRenderBar() {
         setTimeout(() => document.getElementById("cc-txCard").scrollIntoView({behavior:"smooth",block:"start"}), 100);
       },
       animation: { duration: 350 },
-    }
+    },
+    plugins: [ccMedianLinePlugin],
   });
 }
 
@@ -1196,11 +1598,75 @@ const MERCHANT_PALETTE = [
   "#e879f9","#fbbf24","#86efac","#fb7185","#7dd3fc",
 ];
 
+
 function ccRenderCats() {
   const tx = ccFiltered();
   const total = tx.reduce((s,t)=>s+t.amount,0);
   const drillDown = ccCat !== "__all__";
+  const drillMerch = drillDown && ccMerchant !== null;
+  const titleEl = document.getElementById("cc-catListTitle");
 
+  // ── L3: drilled to a specific merchant — show each transaction + monthly bar
+  if (drillMerch) {
+    titleEl.innerHTML =
+      `<span class="cat-title-back" onclick="ccMerchant=null;ccRender()"><span class="back-arrow">←</span>${ccCat} › ${ccMerchant}</span>`;
+
+    // Cat list → individual transactions (newest first)
+    const list = document.getElementById("cc-catList");
+    list.innerHTML = "";
+    const sortedTx = tx.slice().sort((a,b) => parseDate(b.tx_date) - parseDate(a.tx_date));
+    const merchColor = catColor(ccCat);
+    sortedTx.forEach(t => {
+      const row = document.createElement("div");
+      row.className = "cat-row";
+      row.innerHTML = `<div class="cdot" style="background:${merchColor}"></div>
+        <div style="flex:1;min-width:0">
+          <div class="cat-name">${fmtDateHdr(t.tx_date)}</div>
+          <div style="font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description || ""}</div>
+        </div>
+        <div class="cat-amt">${fmtUSD(t.amount)}</div>`;
+      list.appendChild(row);
+    });
+    if (!sortedTx.length) {
+      list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px">No transactions in this filter</div>`;
+    }
+
+    // Donut canvas → monthly bar chart for this merchant
+    if (ccDonut) ccDonut.destroy();
+    const byMonth = {};
+    sortedTx.forEach(t => { const k = monthKey(t); byMonth[k] = (byMonth[k]||0) + t.amount; });
+    const monthKeys = Object.keys(byMonth).sort();
+    const canvas = document.getElementById("cc-donut");
+    ccDonut = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: monthKeys.map(fmtMonthShort),
+        datasets: [{
+          data: monthKeys.map(k => byMonth[k]),
+          backgroundColor: monthKeys.map(() => merchColor + "55"),
+          borderColor:     monthKeys.map(() => merchColor),
+          borderWidth: 1, borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => ` ${fmtUSD(c.raw)}`, title: c => fmtMonthFull(monthKeys[c[0].dataIndex]) } },
+        },
+        scales: {
+          x: { grid:{display:false}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:10}} },
+          y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:10}, callback: v => privacyMode ? "" : "$"+(v>=1000?(v/1000).toFixed(1)+"k":v)} },
+        },
+        animation: { duration: 300 },
+      },
+    });
+    // Hide the donut-center overlay so it doesn't sit on the bar chart
+    document.querySelector(".donut-center").style.display = "none";
+    return;
+  }
+
+  // ── L1/L2 (existing): categories or merchants within a category
   let sorted, colorFn;
   if (drillDown) {
     const byMerchant = {};
@@ -1208,39 +1674,114 @@ function ccRenderCats() {
       const name = t.merchant || t.description || "Unknown";
       byMerchant[name] = (byMerchant[name]||0) + t.amount;
     });
-    sorted = Object.entries(byMerchant).sort((a,b)=>b[1]-a[1]);
-    colorFn = (_, i) => MERCHANT_PALETTE[i % MERCHANT_PALETTE.length];
-    document.getElementById("cc-catListTitle").textContent = ccCat;
+    const all = Object.entries(byMerchant).sort((a,b)=>b[1]-a[1]);
+
+    // The "Other" category IS the long-tail bucket by design — every payee
+    // there is uniquely interesting. Bucketing would just collapse it into
+    // an undrillable aggregate, so we skip the threshold rule here and let
+    // the user click any individual payee to drill into transactions.
+    if (ccCat === "Other") {
+      sorted = all.slice();
+    } else {
+      // For everything else, bucket merchants below 2% of category total
+      // into one "Other · N payees" slice so the list/donut focus on the
+      // meaningful contributors. Aggregates carry a "__other__" tag.
+      const THRESHOLD = 0.02;
+      const big = [], small = [];
+      all.forEach(e => {
+        const share = total > 0 ? e[1]/total : 0;
+        (share >= THRESHOLD ? big : small).push(e);
+      });
+      sorted = big.slice();
+      if (big.length === 0) {
+        sorted = all.slice(0, 8);
+        const rest = all.slice(8);
+        if (rest.length) {
+          const sum = rest.reduce((s,[,v])=>s+v,0);
+          sorted.push([`Other · ${rest.length} payees`, sum, "__other__"]);
+        }
+      } else if (small.length === 1) {
+        sorted.push(small[0]);
+      } else if (small.length > 1) {
+        const sum = small.reduce((s,[,v])=>s+v,0);
+        sorted.push([`Other · ${small.length} payees`, sum, "__other__"]);
+      }
+    }
+
+    colorFn = (label, i) => (sorted[i] && sorted[i][2] === "__other__")
+      ? "rgba(122,143,168,.55)"
+      : MERCHANT_PALETTE[i % MERCHANT_PALETTE.length];
+    titleEl.innerHTML = `<span class="cat-title-back" onclick="ccCat='__all__';ccRender()"><span class="back-arrow">←</span>${ccCat}</span>`;
   } else {
     const bycat = {};
     tx.forEach(t => { const c=ccEffCat(t); bycat[c]=(bycat[c]||0)+t.amount; });
     sorted = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
     colorFn = (cat) => catColor(cat);
-    document.getElementById("cc-catListTitle").textContent = "By Category";
+    titleEl.textContent = "By Category";
   }
 
   const list = document.getElementById("cc-catList");
   list.innerHTML = "";
-  sorted.forEach(([label, amt], i) => {
+  sorted.forEach(([label, amt, tag], i) => {
     const color = colorFn(label, i);
     const pct = total>0 ? (amt/total*100) : 0;
+    const isOther = tag === "__other__";
     const row = document.createElement("div");
     row.className = "cat-row" + (!drillDown && ccCat===label ? " selected" : "");
     row.innerHTML = `<div class="cdot" style="background:${color}"></div>
       <div class="cat-name">${label}</div>
       <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${color}"></div></div>
       <div class="cat-amt">${fmtUSDShort(amt)}</div>`;
-    if (!drillDown) row.onclick = () => { ccCat = ccCat===label ? "__all__" : label; ccRender(); };
+    if (!drillDown) {
+      row.onclick = () => { ccCat = ccCat===label ? "__all__" : label; ccMerchant=null; ccRender(); };
+    } else if (!isOther) {
+      // L2 → L3: drill into this merchant's individual transactions
+      row.style.cursor = "pointer";
+      row.onclick = () => { ccMerchant = label; ccRender(); };
+    }
     list.appendChild(row);
   });
 
   if (ccDonut) ccDonut.destroy();
-  ccDonut = new Chart(document.getElementById("cc-donut").getContext("2d"), {
+  const canvas = document.getElementById("cc-donut");
+  ccDonut = new Chart(canvas.getContext("2d"), {
     type: "doughnut",
-    data: { labels: sorted.map(([l])=>l), datasets:[{ data: sorted.map(([,v])=>v), backgroundColor: sorted.map(([l],i)=>colorFn(l,i)), borderWidth:0, hoverOffset:4 }] },
-    options: { cutout:"70%", plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>` ${fmtUSD(c.raw)} · ${(c.raw/total*100).toFixed(0)}%`}}}, animation:{duration:350} }
+    data: { labels: sorted.map(([l])=>l), datasets:[{ data: sorted.map(([,v])=>v), backgroundColor: sorted.map(([l],i)=>colorFn(l,i)), borderWidth:0, hoverOffset:6 }] },
+    options: {
+      cutout: "62%",
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:c=>` ${fmtUSD(c.raw)} · ${(c.raw/total*100).toFixed(0)}%`}} },
+      animation: { duration: 350 },
+      onClick: (evt, elements) => {
+        // L1: click a slice → drill into category.
+        // L2: click a merchant slice → drill into its transactions ("Other" slice is non-drilling).
+        // Click the donut hole while drilled in → back out one level.
+        if (elements.length) {
+          const idx = elements[0].index;
+          const entry = sorted[idx];
+          if (!drillDown) {
+            const label = entry[0];
+            ccCat = ccCat === label ? "__all__" : label;
+            ccMerchant = null;
+            ccRender();
+          } else if (entry[2] !== "__other__") {
+            ccMerchant = entry[0];
+            ccRender();
+          }
+        } else if (drillDown) {
+          ccCat = "__all__";
+          ccMerchant = null;
+          ccRender();
+        }
+      },
+      onHover: (evt, elements) => {
+        canvas.style.cursor = elements.length || drillDown ? "pointer" : "default";
+      },
+    }
   });
+  document.querySelector(".donut-center").style.display = "";
   document.getElementById("cc-donutTotal").textContent = fmtUSDShort(total);
+  document.getElementById("cc-donutLbl").textContent = drillDown ? ccCat : "total";
+  document.getElementById("cc-donutBack").style.display = drillDown ? "" : "none";
 }
 
 function ccRenderFrequent() {
@@ -1409,11 +1950,37 @@ function ccRenderVelocity() {
       },
       scales: {
         x: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11},maxRotation:0} },
-        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11},callback:v=>"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
+        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11},callback:v=>privacyMode?"":"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
       },
       animation: { duration: 350 },
     }
   });
+}
+
+function ccRangeBounds() {
+  // Inclusive [start, end] of the current ccRange. For "all", falls back to
+  // the oldest CC tx (ignoring category/card filters) through today.
+  const now = new Date();
+  if (ccRange === "thisMonth") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+  if (ccRange === "thisYear")  return { start: new Date(now.getFullYear(), 0, 1), end: now };
+  if (ccRange === "lastYear")  { const y = now.getFullYear()-1; return { start: new Date(y,0,1), end: new Date(y,11,31) }; }
+  if (/^\d{4}-\d{2}$/.test(ccRange)) {
+    const [y, m] = ccRange.split("-").map(Number);
+    return { start: new Date(y, m-1, 1), end: new Date(y, m, 0) };
+  }
+  if (/^\d{4}$/.test(ccRange)) { const y = +ccRange; return { start: new Date(y,0,1), end: new Date(y,11,31) }; }
+  // "all" — use oldest tx through today
+  if (!ccTx.length) return { start: now, end: now };
+  const times = ccTx.map(t => parseDate(t.tx_date).getTime());
+  return { start: new Date(Math.min(...times)), end: now };
+}
+
+function countWeekdaysInRange(start, end) {
+  const counts = new Array(7).fill(0);
+  const cur  = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = new Date(end.getFullYear(),   end.getMonth(),   end.getDate());
+  while (cur <= last) { counts[cur.getDay()]++; cur.setDate(cur.getDate()+1); }
+  return counts;
 }
 
 function ccRenderDow() {
@@ -1424,18 +1991,15 @@ function ccRenderDow() {
 
   const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const totals = new Array(7).fill(0);
-  const seenDates = new Set();
-  const dayCounts = new Array(7).fill(0);
 
   tx.forEach(t => {
     const d = parseDate(t.tx_date);
     const ld = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
-    const dow = ld.getDay();
-    const dateKey = `${ld.getFullYear()}-${ld.getMonth()}-${ld.getDate()}`;
-    totals[dow] += t.amount;
-    if (!seenDates.has(dateKey)) { seenDates.add(dateKey); dayCounts[dow]++; }
+    totals[ld.getDay()] += t.amount;
   });
 
+  const { start, end } = ccRangeBounds();
+  const dayCounts = countWeekdaysInRange(start, end);
   const avgs = totals.map((t,i) => dayCounts[i] > 0 ? t / dayCounts[i] : 0);
   const maxAvg = Math.max(...avgs, 1);
 
@@ -1509,7 +2073,7 @@ document.getElementById("cc-fileInput").addEventListener("change", e => { if(e.t
 async function ccClearAll() {
   if (!confirm("Remove all credit card transactions?")) return;
   await fetch("/api/apple-card/clear",{method:"POST"});
-  ccTx=[]; ccImports=[]; ccCat="__all__"; ccCard="__all__"; ccRange="all"; ccFreqMerchant=null; ccRender(); toast("Cleared");
+  ccTx=[]; ccImports=[]; ccCat="__all__"; ccCard="__all__"; ccRange="all"; ccFreqMerchant=null; ccMerchant=null; ccRender(); toast("Cleared");
 }
 
 
@@ -1560,22 +2124,62 @@ async function bkLoad() {
   bkTx = d.transactions || [];
   bkImports = d.imports || [];
   applyMerchantCategories(bkTx);
+  bkCanonicalizeAccountNames();
   bkRender();
+}
+
+// Plaid and CSV imports give the same underlying account different
+// account_name values (e.g. "Checking" from CSV vs "depository Account 9995"
+// from Plaid). Collapse them: per last-4 of `account`, pick the most common
+// CSV-source name and rewrite Plaid rows to match. CSV wins because it's
+// the name the user typed in the import modal.
+function bkCanonicalizeAccountNames() {
+  const groups = {};
+  bkTx.forEach(t => {
+    const m = String(t.account || "").slice(-4);
+    if (!m) return;
+    const isPlaid = !!t.plaid_id;
+    const name = (t.account_name || "").trim();
+    if (!name) return;
+    const g = groups[m] = groups[m] || { csv: {}, plaid: {} };
+    const bucket = isPlaid ? g.plaid : g.csv;
+    bucket[name] = (bucket[name] || 0) + 1;
+  });
+  const canon = {};
+  const pickTop = obj => {
+    const entries = Object.entries(obj);
+    if (!entries.length) return null;
+    entries.sort((a,b) => b[1]-a[1]);
+    return entries[0][0];
+  };
+  Object.entries(groups).forEach(([m, g]) => {
+    canon[m] = pickTop(g.csv) || pickTop(g.plaid) || null;
+  });
+  bkTx.forEach(t => {
+    const m = String(t.account || "").slice(-4);
+    if (m && canon[m]) t.account_name = canon[m];
+  });
 }
 
 function bkRenderImports() {
   const el = document.getElementById("bk-imports-panel");
   if (!bkImports.length) { el.innerHTML = ""; return; }
-  const rows = bkImports.map(imp => `
+  const rows = bkImports.map(imp => {
+    const refreshes = (imp.refreshes || []).length;
+    const refreshBadge = refreshes > 1
+      ? ` · <span title="Last refresh ${fmtImportDate(imp.imported_at)}" style="color:var(--accent)">↺ ${refreshes}× refreshed</span>`
+      : "";
+    return `
     <div class="import-file-row">
       <svg class="import-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       <div class="import-file-info">
         <div class="import-file-name">${imp.filename}</div>
-        <div class="import-file-meta">${imp.account_name||""}${imp.new_transactions!=null?` · ${imp.new_transactions} transactions`:""} · ${fmtImportDate(imp.imported_at)}</div>
+        <div class="import-file-meta">${imp.account_name||""}${imp.new_transactions!=null?` · ${imp.new_transactions} transactions`:""} · ${fmtImportDate(imp.imported_at)}${refreshBadge}</div>
       </div>
       <span class="import-source-badge bank">Bank</span>
       <button class="import-delete-btn" title="Remove this import" onclick="bkDeleteImport('${imp.id}')">×</button>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   el.innerHTML = `<div class="imports-panel">
     <div class="imports-panel-hdr" onclick="_bkImportsOpen=!_bkImportsOpen;bkRenderImports()">
       <span class="imports-panel-title">Imported Files</span>
@@ -1602,9 +2206,11 @@ function bkRender() {
   if (currentTab === "bank") updateTopbarButtons();
   if (!has) return;
   buildTolBtns("bk", bkRecurTol, val => { bkRecurTol = val; bkRender(); });
+  // Pass full bank history (no range filter) so "active in last 12 months"
+  // anchors to today regardless of which range pill the user has selected.
   const bkRecur = detectRecurring(
-    bkTx.filter(t => bkRangeFilter(t)),
-    t => t.description || "Unknown",
+    bkTx,
+    t => stripBkPrefix(t.description) || "Unknown",
     t => t.amount,
     t => t.tx_type === "Credit" ? "var(--pos)" : "var(--neg)",
     bkRecurTol
@@ -1783,14 +2389,32 @@ function bkRenderCats() {
   });
 
   // Donut chart
+  const drilled = bkCat !== "__all__";
   document.getElementById("bk-donutTotal").textContent = fmtUSDShort(total);
+  document.getElementById("bk-donutLbl").textContent = drilled ? bkCat : "debits";
+  document.getElementById("bk-donutBack").style.display = drilled ? "" : "none";
   if (bkDonut) bkDonut.destroy();
-  bkDonut = new Chart(document.getElementById("bk-donut").getContext("2d"), {
+  const bkCanvas = document.getElementById("bk-donut");
+  bkDonut = new Chart(bkCanvas.getContext("2d"), {
     type: "doughnut",
-    data: { labels:sorted.map(([c])=>c), datasets:[{data:sorted.map(([,v])=>v), backgroundColor:sorted.map(([c])=>catColor(c)), borderWidth:0, hoverOffset:4}] },
+    data: { labels:sorted.map(([c])=>c), datasets:[{data:sorted.map(([,v])=>v), backgroundColor:sorted.map(([c])=>catColor(c)), borderWidth:0, hoverOffset:6}] },
     options: {
-      responsive:true, cutout:"68%",
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmtUSD(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)`}} },
+      responsive: true,
+      cutout: "62%",
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmtUSD(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)`}} },
+      onClick: (evt, elements) => {
+        if (elements.length) {
+          const label = sorted[elements[0].index][0];
+          bkCat = bkCat === label ? "__all__" : label;
+          bkRender();
+        } else if (drilled) {
+          bkCat = "__all__";
+          bkRender();
+        }
+      },
+      onHover: (evt, elements) => {
+        bkCanvas.style.cursor = elements.length || drilled ? "pointer" : "default";
+      },
     }
   });
 }
@@ -1840,7 +2464,7 @@ function bkRenderBar() {
       },
       scales: {
         x: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Sans'",size:11}} },
-        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11}, callback:v=>"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
+        y: { grid:{color:"rgba(255,255,255,.04)"}, ticks:{color:"#7a8fa8",font:{family:"'DM Mono'",size:11}, callback:v=>privacyMode?"":"$"+(v>=1000?(v/1000).toFixed(0)+"k":v)} }
       },
       onClick(evt, els) {
         if (!els.length) return;
@@ -1905,8 +2529,9 @@ async function bkImport(file, accountName) {
   const res = await fetch("/api/bank/import",{method:"POST",body:fd});
   const d = await res.json();
   if (d.error) { toast("Error: "+d.error); return; }
-  let msg = `Imported ${d.imported} transaction${d.imported!==1?"s":""}`;
-  if (d.duplicates) msg += ` · ${d.duplicates} skipped`;
+  const verb = d.merged ? "Refreshed" : "Imported";
+  let msg = `${verb} ${d.imported} new transaction${d.imported!==1?"s":""}`;
+  if (d.duplicates) msg += ` · ${d.duplicates} already on file`;
   if (d.skipped_cc) msg += ` · ${d.skipped_cc} CC payments excluded`;
   toast(msg);
   await bkLoad();
@@ -1920,15 +2545,26 @@ async function bkClearAll() {
 }
 
 // ── Recurring payment detection ──────────────────────────────
-let ccRecurTol = 10; // percent
-let bkRecurTol = 10;
+// Tolerance is now expressed in days (how far day-of-month can drift).
+let ccRecurTol = 7;
+let bkRecurTol = 7;
 
 const TOL_PRESETS = [
   { label: "Exact", val: 0 },
-  { label: "±5%",  val: 5 },
-  { label: "±15%", val: 15 },
-  { label: "±30%", val: 30 },
+  { label: "±3d",  val: 3 },
+  { label: "±7d",  val: 7 },
+  { label: "±14d", val: 14 },
 ];
+
+// Cheap fuzzy merchant identifier: strip noise, take first significant alpha
+// token. "SPOTIFY USA" → "spotify"; "AMAZON.COM*X3Y2Z" → "amazon".
+function merchantRoot(name) {
+  const tokens = (name || "").toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length >= 3 && !/^\d+$/.test(w));
+  return tokens[0] || (name || "").toLowerCase().trim();
+}
 
 function buildTolBtns(prefix, current, onChange) {
   const wrap = document.getElementById(`${prefix}-tolBtns`);
@@ -1942,53 +2578,72 @@ function buildTolBtns(prefix, current, onChange) {
   });
 }
 
-function longestConsecutiveMonths(txs) {
-  const months = [...new Set(txs.map(monthKey))].sort();
-  if (months.length < 2) return months.length;
-  let maxRun = 1, run = 1;
-  for (let i = 1; i < months.length; i++) {
-    const [y1, m1] = months[i-1].split("-").map(Number);
-    const [y2, m2] = months[i].split("-").map(Number);
-    if ((y2 - y1) * 12 + (m2 - m1) === 1) { run++; maxRun = Math.max(maxRun, run); }
-    else run = 1;
-  }
-  return maxRun;
-}
+// "Active monthly subscription" detector. A merchant qualifies if it has:
+//   - ≥3 charges across ≥3 distinct calendar months
+//   - median consecutive gap of 25–35 days (monthly cadence — drops quarterly /
+//     yearly / sporadic repeats)
+//   - most recent charge within 365 days (drops canceled subs)
+//   - charge day-of-month consistent within `dayTolerance` (handles billing
+//     drift like Spotify's 8th → 13th → 14th)
+// Merchants are bucketed by a fuzzy root token so "Spotify USA" / "Spotify
+// Premium" / "SPOTIFY *PXXX" all land together.
+function detectRecurring(txs, nameFn, amtFn, colorFn, dayTolerance) {
+  const TODAY        = Date.now();
+  const ONE_YEAR_MS  = 365 * 86400000;
+  const MIN_GAP_DAYS = 25;
+  const MAX_GAP_DAYS = 35;
 
-function detectRecurring(txs, nameFn, amtFn, colorFn, tolerancePct) {
-  // Group by normalized name only
-  const byName = {};
+  const byRoot = {};
   txs.forEach(t => {
     const amt = amtFn(t);
     if (amt <= 0) return;
-    const key  = nameFn(t).trim().toLowerCase();
     const name = nameFn(t).trim();
-    if (!byName[key]) byName[key] = { name, color: colorFn(t), txs: [] };
-    byName[key].txs.push(t);
+    const root = merchantRoot(name);
+    if (!root) return;
+    if (!byRoot[root]) byRoot[root] = { root, color: colorFn(t), items: [] };
+    byRoot[root].items.push({ t, name });
   });
 
-  return Object.values(byName).filter(g => {
-    if (g.txs.length < 2) return false;
-    const months = new Set(g.txs.map(monthKey));
-    if (months.size < 2) return false;
+  return Object.values(byRoot).map(g => {
+    const nameCounts = {};
+    g.items.forEach(({ name }) => { nameCounts[name] = (nameCounts[name] || 0) + 1; });
+    const displayName = Object.entries(nameCounts).sort((a,b) => b[1]-a[1])[0][0];
+    return { root: g.root, name: displayName, color: g.color, txs: g.items.map(i => i.t) };
+  }).filter(g => {
+    if (g.txs.length < 3) return false;
+    if (new Set(g.txs.map(monthKey)).size < 3) return false;
 
-    const amounts = g.txs.map(t => amtFn(t));
-    const sorted  = [...amounts].sort((a,b) => a-b);
-    const median  = sorted[Math.floor(sorted.length / 2)];
-    // All amounts must be within tolerance of the median
-    return amounts.every(a => Math.abs(a - median) / median * 100 <= tolerancePct);
+    const times  = g.txs.map(t => parseDate(t.tx_date).getTime());
+    const latest = Math.max(...times);
+    if (TODAY - latest > ONE_YEAR_MS) return false;
+
+    const sortedTimes = [...times].sort((a,b) => a-b);
+    const gaps = [];
+    for (let i = 1; i < sortedTimes.length; i++) gaps.push((sortedTimes[i] - sortedTimes[i-1]) / 86400000);
+    const medianGap = [...gaps].sort((a,b) => a-b)[Math.floor(gaps.length / 2)];
+    if (medianGap < MIN_GAP_DAYS || medianGap > MAX_GAP_DAYS) return false;
+
+    const doms = g.txs.map(t => parseDate(t.tx_date).getDate());
+    const medianDom = [...doms].sort((a,b) => a-b)[Math.floor(doms.length/2)];
+    const close = doms.filter(d => {
+      const raw = Math.abs(d - medianDom);
+      return Math.min(raw, 31 - raw) <= dayTolerance;
+    }).length;
+    return close / doms.length >= 0.6;
   }).map(g => {
     const amounts = g.txs.map(t => amtFn(t));
     const sorted  = [...amounts].sort((a,b) => a-b);
     const median  = sorted[Math.floor(sorted.length / 2)];
+    const latest  = Math.max(...g.txs.map(t => parseDate(t.tx_date).getTime()));
     return {
       ...g,
       median,
       amtMin: sorted[0],
       amtMax: sorted[sorted.length - 1],
       varying: sorted[sorted.length-1] - sorted[0] > 0.005,
+      latest,
     };
-  }).sort((a, b) => b.median - a.median);
+  }).sort((a, b) => b.latest - a.latest);
 }
 
 function guessFrequency(txs) {
@@ -2112,6 +2767,7 @@ function renderRecurring(prefix, groups, acctFilter) {
 let ccSearch = "";
 let ccSort   = "date-desc";
 let ccFreqMerchant = null;
+let ccMerchant     = null;  // Breakdown drill-down: L1=categories, L2=merchants, L3=this merchant's transactions
 let ccFreqMin = 12;
 let ccTxView = "date";
 const ccExpanded = new Set();
@@ -2326,6 +2982,10 @@ bkZone.addEventListener("dragleave", () => bkZone.classList.remove("drag-over"))
 bkZone.addEventListener("drop", e => { e.preventDefault(); bkZone.classList.remove("drag-over"); if(e.dataTransfer.files[0]) bkImport(e.dataTransfer.files[0]); });
 
 // ── Boot ──────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input,textarea")) return;
+  if (e.key === "h" || e.key === "H") togglePrivacy();
+});
 updateTopbarButtons();
 Promise.all([ccLoad(), bkLoad()]);
 </script>

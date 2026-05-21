@@ -6,6 +6,7 @@
   <title>Portfolio Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -287,7 +288,7 @@
 
 <!-- ── HEADER ──────────────────────────────────────────────────── -->
 <header class="content sticky top-0 z-40 glass-dark">
-  <div class="max-w-6xl mx-auto px-5 py-3 flex items-center gap-4">
+  <div class="max-w-[1400px] mx-auto px-6 py-3 flex items-center gap-4">
     <!-- Logo -->
     <div class="flex items-center gap-2.5 flex-shrink-0">
       <div style="background:linear-gradient(135deg,#0e7490,#22d3ee);box-shadow:0 0 12px rgba(34,211,238,.25)" class="w-8 h-8 rounded-lg flex items-center justify-center">
@@ -306,6 +307,7 @@
       <button class="tab-btn"        id="tab-loans"     onclick="setTab('loans')">Loans</button>
       <button class="tab-btn"        id="tab-grants"    onclick="setTab('grants')">Grants</button>
       <button class="tab-btn"        id="tab-schwab"    onclick="setTab('schwab')">Schwab</button>
+      <button class="tab-btn"        id="tab-connections" onclick="setTab('connections')">Connections</button>
     </div>
 
     <!-- Controls -->
@@ -339,11 +341,12 @@
     <button class="tab-btn"        id="mtab-loans"    onclick="setTab('loans')">Loans</button>
     <button class="tab-btn"        id="mtab-grants"   onclick="setTab('grants')">Grants</button>
     <button class="tab-btn"        id="mtab-schwab"   onclick="setTab('schwab')">Schwab</button>
+    <button class="tab-btn"        id="mtab-connections" onclick="setTab('connections')">Connections</button>
   </div>
 </header>
 
 <!-- ── MAIN ────────────────────────────────────────────────────── -->
-<main class="content max-w-6xl mx-auto px-5 py-6">
+<main class="content max-w-[1400px] mx-auto px-6 py-6">
 
   <!-- ══ OVERVIEW TAB ══════════════════════════════════════════ -->
   <div id="pane-overview" class="space-y-5 fade-in">
@@ -659,6 +662,30 @@
       </div>
     </div>
 
+    <!-- ── Top-level summary cards (visible on all sub-tabs) ── -->
+    <div class="glass rounded-2xl p-6">
+      <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Performance Summary
+        <span id="hist-acct-label" class="normal-case font-normal text-slate-600 ml-1"></span>
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Realized P&amp;L</p><p id="hist-pnl" class="font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Unrealized P&amp;L</p><p id="hist-unreal" class="font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Dividends / Interest</p><p id="hist-div" class="text-white font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Fees Paid</p><p id="hist-fees" class="text-slate-300 font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Symbols Traded</p><p id="hist-symbols" class="text-white font-bold text-xl">—</p></div>
+      </div>
+    </div>
+    <div class="glass rounded-2xl p-6">
+      <p class="text-xs font-semibold uppercase tracking-widest mb-1" style="color:var(--text-3);letter-spacing:.1em">Tax Lots — Long-Term vs Short-Term</p>
+      <p class="text-slate-600 text-xs mb-4">Long-term = held &gt; 365 days · current open positions reflect "as of today" · realized covers everything sold this calendar year</p>
+      <div class="flex flex-wrap gap-3">
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Unrealized <span class="text-slate-700">· Long-Term</span></p><p id="hist-unreal-lt" class="font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Unrealized <span class="text-slate-700">· Short-Term</span></p><p id="hist-unreal-st" class="font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Realized <span id="hist-real-ytd-year" class="text-slate-700">YTD</span> <span class="text-slate-700">· Long-Term</span></p><p id="hist-real-lt" class="font-bold text-xl">—</p></div>
+        <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Realized <span class="text-slate-700">YTD</span> <span class="text-slate-700">· Short-Term</span></p><p id="hist-real-st" class="font-bold text-xl">—</p></div>
+      </div>
+    </div>
+
     <!-- ── History sub-pane ── -->
     <div id="ssub-history" class="hidden space-y-5">
       <div class="glass rounded-2xl overflow-hidden">
@@ -672,18 +699,6 @@
       <div id="acct-pills-wrap" class="glass rounded-2xl px-5 py-4 hidden">
         <p class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">View by Account</p>
         <div id="acct-pills" class="flex flex-wrap gap-2"></div>
-      </div>
-      <div class="glass rounded-2xl p-6">
-        <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:var(--text-3);letter-spacing:.1em">Performance Summary
-          <span id="hist-acct-label" class="normal-case font-normal text-slate-600 ml-1"></span>
-        </p>
-        <div class="flex flex-wrap gap-3">
-          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Realized P&amp;L</p><p id="hist-pnl" class="font-bold text-xl">—</p></div>
-          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Unrealized P&amp;L</p><p id="hist-unreal" class="font-bold text-xl">—</p></div>
-          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Dividends / Interest</p><p id="hist-div" class="text-white font-bold text-xl">—</p></div>
-          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Fees Paid</p><p id="hist-fees" class="text-slate-300 font-bold text-xl">—</p></div>
-          <div class="stat-chip"><p class="text-slate-600 text-xs mb-1">Symbols Traded</p><p id="hist-symbols" class="text-white font-bold text-xl">—</p></div>
-        </div>
       </div>
       <div id="sharpe-card" class="glass rounded-2xl overflow-hidden hidden">
         <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
@@ -795,6 +810,59 @@
     </div>
 
   </div><!-- /pane-schwab -->
+
+  <!-- ══ CONNECTIONS TAB ══════════════════════════════════════ -->
+  <div id="pane-connections" class="hidden space-y-5 fade-in">
+
+    <!-- Header / config status -->
+    <div class="glass rounded-2xl p-6">
+      <div class="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="font-semibold text-white text-base">Bank &amp; Card Connections</h2>
+          <p class="text-slate-500 text-sm mt-1">Link accounts via Plaid to auto-import transactions. Bank accounts flow into the Bank tab; credit cards flow into the Credit Card tab.</p>
+        </div>
+        <div id="plaid-env-pill" class="hidden text-xs font-mono px-2.5 py-1 rounded-full" style="background:rgba(34,211,238,.1);color:#22d3ee;border:1px solid rgba(34,211,238,.2)"></div>
+      </div>
+
+      <div id="plaid-not-configured" class="hidden mt-4">
+        <p class="text-white font-semibold text-sm mb-2">Plaid not configured</p>
+        <p class="text-slate-500 text-sm">Create <code class="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-slate-300 text-xs font-mono">data/plaid_config.json</code>:</p>
+        <pre class="mt-3 text-xs bg-white/5 border border-white/8 rounded-xl p-4 text-slate-300 overflow-x-auto">{
+  "client_id": "YOUR_PLAID_CLIENT_ID",
+  "secret":    "YOUR_PLAID_SECRET",
+  "env":       "sandbox"
+}</pre>
+        <p class="text-slate-600 text-xs mt-3">Get keys at <span class="font-mono">dashboard.plaid.com</span>. Then restart the app.</p>
+        <p class="text-slate-600 text-xs mt-1">In Sandbox, log in with <span class="font-mono text-slate-400">user_good</span> / <span class="font-mono text-slate-400">pass_good</span> to any institution.</p>
+      </div>
+
+      <div id="plaid-configured" class="hidden mt-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="plaidConnect()" id="plaid-connect-btn" class="btn-primary text-xs py-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Connect bank
+          </button>
+          <button onclick="plaidSyncAll()" id="plaid-sync-btn" class="btn-ghost text-xs py-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            Sync all
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connected items list -->
+    <div id="plaid-items-card" class="glass rounded-2xl overflow-hidden hidden">
+      <div class="px-6 py-4 border-b border-white/5">
+        <h2 class="font-semibold text-white text-sm">Connected Institutions</h2>
+      </div>
+      <div id="plaid-items-list" class="divide-y divide-white/5"></div>
+    </div>
+    <div id="plaid-items-empty" class="glass rounded-2xl p-10 text-center hidden">
+      <p class="text-slate-500 text-sm">No institutions connected yet.</p>
+      <p class="text-slate-600 text-xs mt-1">Click <span class="text-slate-400">Connect bank</span> above to get started.</p>
+    </div>
+
+  </div><!-- /pane-connections -->
 
 </main>
 
@@ -1127,6 +1195,10 @@ const S = {
   grantExpanded:   new Set(), // IDs with lot table open
   grantsSubTab:    'list',    // 'list' | 'timeline'
   grantsChart:     null,      // Chart.js instance
+  // Plaid state
+  plaidStatus:     null,      // { configured, env, items: [...] }
+  plaidLinkHandler:null,
+  plaidBusy:       false,
 };
 
 // ── Chart utilities ────────────────────────────────────────────
@@ -1359,13 +1431,15 @@ function setTab(t){
   if(t==='charts'){  setTab('schwab'); setSchwabSubTab('charts');  return; }
   S.tab=t;
   localStorage.setItem('pt_tab',t);
-  ['overview','crypto','accounts','loans','grants','schwab'].forEach(id=>{
+  ['overview','crypto','accounts','loans','grants','schwab','connections'].forEach(id=>{
     document.getElementById('pane-'+id)?.classList.toggle('hidden',id!==t);
     document.getElementById('tab-'+id)?.classList.toggle('active',id===t);
     document.getElementById('mtab-'+id)?.classList.toggle('active',id===t);
   });
   if(t!=='grants' && S.grantsChart){ S.grantsChart.destroy(); S.grantsChart=null; }
   if(t==='schwab' && S.schwabStatus===null) loadSchwabStatus();
+  if(t==='schwab' && S.perf) renderPerfSummary();   // perf summary now lives at top of Schwab tab
+  if(t==='connections') loadPlaidStatus();
 }
 
 function setSchwabSubTab(sub){
@@ -1374,6 +1448,9 @@ function setSchwabSubTab(sub){
     document.getElementById('ssub-btn-'+s)?.classList.toggle('active', s===sub);
     document.getElementById('ssub-actions-'+s)?.classList.toggle('hidden', s!==sub);
   });
+  // Perf summary + Tax Lots cards sit above the sub-tab nav — re-render
+  // on every sub-tab switch so values are filled regardless of which one is shown.
+  if(S.perf) renderPerfSummary();
   if(sub==='history') loadHistory();
   if(sub==='live' && S.schwabStatus===null) loadSchwabStatus();
   if(sub==='charts') renderCharts();
@@ -1423,11 +1500,11 @@ const api = {
 async function attachPricesToPerf(perf){
   if(!perf||!perf.by_symbol) return perf;
   const syms = Object.keys(perf.by_symbol).filter(s=>s&&s.indexOf(' ' )===-1);
-  if(!syms.length){ perf.unrealized_pnl=0; return perf; }
+  if(!syms.length){ perf.unrealized_pnl=0; perf.unrealized_lt_pnl=0; perf.unrealized_st_pnl=0; return perf; }
   // Reuse prices endpoint which returns {SYM:{price, error}}
   try{
     const res = await api.post('/api/prices',{symbols:syms});
-    let total_unreal=0;
+    let total_unreal = 0, total_unreal_lt = 0, total_unreal_st = 0;
     for(const sym of syms){
       const info = res[sym] || {};
       const price = info.price!=null?info.price:null;
@@ -1436,12 +1513,27 @@ async function attachPricesToPerf(perf){
       if(price!=null && entry.current_qty>1e-9){
         entry.unrealized_pnl = entry.current_qty * (price - (entry.current_avg_cost||0));
         total_unreal += entry.unrealized_pnl;
+        // LT/ST split — backend supplied per-lot-age qty + avg_cost for each side.
+        if(entry.open_lt_qty > 1e-9){
+          entry.unrealized_lt = entry.open_lt_qty * (price - (entry.open_lt_avg_cost||0));
+          total_unreal_lt += entry.unrealized_lt;
+        } else { entry.unrealized_lt = 0; }
+        if(entry.open_st_qty > 1e-9){
+          entry.unrealized_st = entry.open_st_qty * (price - (entry.open_st_avg_cost||0));
+          total_unreal_st += entry.unrealized_st;
+        } else { entry.unrealized_st = 0; }
       } else {
         entry.unrealized_pnl = null;  // null = price unavailable or position closed
+        entry.unrealized_lt = null;
+        entry.unrealized_st = null;
       }
     }
-    perf.unrealized_pnl = total_unreal;
-  }catch(e){ perf.unrealized_pnl = 0; }
+    perf.unrealized_pnl    = total_unreal;
+    perf.unrealized_lt_pnl = total_unreal_lt;
+    perf.unrealized_st_pnl = total_unreal_st;
+  }catch(e){
+    perf.unrealized_pnl = 0; perf.unrealized_lt_pnl = 0; perf.unrealized_st_pnl = 0;
+  }
   return perf;
 }
 
@@ -1540,7 +1632,7 @@ async function refreshAll(){
 }
 
 // ── Render all ─────────────────────────────────────────────────
-function renderAll(){ renderOverview(); renderCrypto(); renderAccounts(); renderLoans(); renderGrants(); renderSchwabPositions(); if(S.tab==='schwab' && !document.getElementById('ssub-history')?.classList.contains('hidden')) renderHistory(); }
+function renderAll(){ renderOverview(); renderCrypto(); renderAccounts(); renderLoans(); renderGrants(); renderSchwabPositions(); if(S.tab==='schwab' && !document.getElementById('ssub-history')?.classList.contains('hidden')) renderHistory(); if(S.tab==='grants' && S.grantsSubTab==='timeline') renderGrantsTimeline(); }
 
 // ── Overview ───────────────────────────────────────────────────
 function renderOverview(){
@@ -1602,7 +1694,7 @@ function renderOverview(){
         ${nextEvent ? `<div>
           <p class="text-slate-600 text-xs mb-0.5">Next vest</p>
           <p class="text-white font-medium text-sm">${nextEvent.lot.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
-          <p class="text-slate-600 text-xs">${nextEvent.g.symbol} · ${fmtAmt(nextEvent.shares,false)} shares${nextEvent.price!=null?' · '+fmtUSD(nextEvent.shares*nextEvent.price):''}</p>
+          <p class="text-slate-600 text-xs">${nextEvent.g.symbol} · ${fmtAmt(nextEvent.shares)} shares${nextEvent.price!=null?' · '+fmtUSD(nextEvent.shares*nextEvent.price):''}</p>
         </div>` : ''}
       </div><div class="border-t border-white/5">`;
 
@@ -1613,9 +1705,9 @@ function renderOverview(){
           ? nextLot.vest_date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+` (${daysToNext}d)`
           : 'Fully vested';
         return `<div class="px-6 py-4 flex items-center gap-4 flex-wrap hover:bg-white/[0.02] transition-colors">
-          <div class="flex items-center gap-2 min-w-[140px]">
-            <span class="acct-badge" style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)">${g.symbol}</span>
-            <span class="text-white text-sm font-medium truncate max-w-[120px]">${g.name}</span>
+          <div class="flex items-center gap-2 w-[200px] flex-shrink-0">
+            <span class="acct-badge flex-shrink-0" style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.25)">${g.symbol}</span>
+            <span class="text-white text-sm font-medium truncate">${g.name}</span>
           </div>
           <div class="flex-1 min-w-[120px]">
             <div class="flex justify-between text-xs text-slate-600 mb-1">
@@ -1628,7 +1720,7 @@ function renderOverview(){
           <div class="text-right min-w-[90px]">
             <p class="text-xs text-slate-600 mb-0.5">Unvested</p>
             <p class="text-sm font-semibold" style="color:#a78bfa">${unvestedVal!=null?fmtUSD(unvestedVal):'—'}</p>
-            <p class="text-xs text-slate-600">${fmtAmt(unvestedShares,false)} sh</p>
+            <p class="text-xs text-slate-600">${fmtAmt(unvestedShares)} sh</p>
           </div>
           <div class="text-right min-w-[120px]">
             <p class="text-xs text-slate-600 mb-0.5">Next vest</p>
@@ -2110,15 +2202,25 @@ function renderGrants(){
   if(sumCard && sumChips){
     sumCard.classList.remove('hidden');
     let totalVestedShares=0, totalUnvestedShares=0, totalVestedVal=0, totalUnvestedVal=0, totalGrantVal=0;
+    let yearlyShares=0, yearlyVal=0;
     const nextVests=[];
+    const now = new Date(); now.setHours(0,0,0,0);
+    const yearOut = new Date(now); yearOut.setFullYear(yearOut.getFullYear() + 1);
     for(const g of S.grants){
       const lots  = calcGrantLots(g);
       const price = S.grantPrices[g.symbol] ?? null;
       const vs = lots.filter(l=>l.vested).reduce((s,l)=>s+l.shares,0);
       const us = lots.filter(l=>!l.vested).reduce((s,l)=>s+l.shares,0);
+      const ys = lots.filter(l=>!l.vested && l.vest_date <= yearOut).reduce((s,l)=>s+l.shares,0);
       totalVestedShares   += vs;
       totalUnvestedShares += us;
-      if(price!=null){ totalVestedVal+=vs*price; totalUnvestedVal+=us*price; totalGrantVal+=(vs+us)*price; }
+      yearlyShares        += ys;
+      if(price!=null){
+        totalVestedVal+=vs*price;
+        totalUnvestedVal+=us*price;
+        totalGrantVal+=(vs+us)*price;
+        yearlyVal+=ys*price;
+      }
       const next=lots.find(l=>!l.vested);
       if(next) nextVests.push({date:next.vest_date,shares:next.shares,symbol:g.symbol,price});
     }
@@ -2131,22 +2233,32 @@ function renderGrants(){
       <div class="stat-chip">
         <p class="text-slate-600 text-xs mb-1">Total Unvested</p>
         <p class="font-bold text-xl" style="color:#a78bfa">${hasPrice?fmtUSD(totalUnvestedVal):'—'}</p>
-        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalUnvestedShares,false)} shares</p>
+        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalUnvestedShares)} shares</p>
       </div>
       <div class="stat-chip">
         <p class="text-slate-600 text-xs mb-1">Total Vested</p>
         <p class="text-white font-bold text-xl">${hasPrice?fmtUSD(totalVestedVal):'—'}</p>
-        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalVestedShares,false)} shares</p>
+        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalVestedShares)} shares</p>
       </div>
       <div class="stat-chip">
         <p class="text-slate-600 text-xs mb-1">Total Grant Value</p>
         <p class="text-white font-bold text-xl">${hasPrice?fmtUSD(totalGrantVal):'—'}</p>
         <p class="text-slate-600 text-xs mt-0.5">${S.grants.length} grant${S.grants.length!==1?'s':''}</p>
       </div>
+      <div class="stat-chip">
+        <p class="text-slate-600 text-xs mb-1">Next 12 mo (scheduled) <span class="text-slate-700 font-normal">@ current price</span></p>
+        <p class="font-bold text-xl" style="color:#a78bfa">${yearlyShares>0 && hasPrice?fmtUSD(yearlyVal):'—'}</p>
+        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(yearlyShares)} sh · what the vesting schedule actually drops</p>
+      </div>
+      <div class="stat-chip">
+        <p class="text-slate-600 text-xs mb-1">25% of unvested <span class="text-slate-700 font-normal">@ current price</span></p>
+        <p class="font-bold text-xl" style="color:#a78bfa">${totalUnvestedShares>0 && hasPrice?fmtUSD(totalUnvestedVal*0.25):'—'}</p>
+        <p class="text-slate-600 text-xs mt-0.5">${fmtAmt(totalUnvestedShares*0.25)} sh · 1/4 of ${fmtAmt(totalUnvestedShares)} remaining</p>
+      </div>
       ${next?`<div class="stat-chip">
         <p class="text-slate-600 text-xs mb-1">Next Vest</p>
         <p class="text-white font-bold text-xl">${next.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</p>
-        <p class="text-slate-600 text-xs mt-0.5">${next.symbol} · ${fmtAmt(next.shares,false)} sh · ${daysToNext}d away</p>
+        <p class="text-slate-600 text-xs mt-0.5">${next.symbol} · ${fmtAmt(next.shares)} sh · ${daysToNext}d away</p>
       </div>`:''}`;
   }
 
@@ -2171,7 +2283,7 @@ function renderGrants(){
         return `<tr class="border-t border-white/[0.04] opacity-40">
           <td class="px-4 py-2 text-xs text-slate-500">${l.period}</td>
           <td class="px-4 py-2 text-xs text-slate-500">${vdStr}</td>
-          <td class="px-4 py-2 text-xs text-right text-slate-500">${fmtAmt(l.shares,false)}</td>
+          <td class="px-4 py-2 text-xs text-right text-slate-500">${fmtAmt(l.shares)}</td>
           <td class="px-4 py-2 text-xs text-center"><span class="text-emerald-500 text-xs font-medium">✓ Vested</span></td>
           <td class="px-4 py-2 text-xs text-right text-slate-600">${atGrant}</td>
           <td class="px-4 py-2 text-xs text-right text-slate-600">—</td>
@@ -2181,7 +2293,7 @@ function renderGrants(){
         return `<tr class="border-t border-white/[0.04] hover:bg-white/[0.02]">
           <td class="px-4 py-2 text-xs text-slate-400">${l.period}</td>
           <td class="px-4 py-2 text-xs text-slate-300">${vdStr} <span class="text-slate-600 ml-1">${daysStr}d</span></td>
-          <td class="px-4 py-2 text-xs text-right text-slate-300">${fmtAmt(l.shares,false)}</td>
+          <td class="px-4 py-2 text-xs text-right text-slate-300">${fmtAmt(l.shares)}</td>
           <td class="px-4 py-2 text-xs text-center"><span class="text-slate-500 text-xs">○ Unvested</span></td>
           <td class="px-4 py-2 text-xs text-right text-slate-500">${atGrant}</td>
           <td class="px-4 py-2 text-xs text-right" style="color:#a78bfa">${price!=null?atCurrent:'—'}</td>
@@ -2208,7 +2320,7 @@ function renderGrants(){
             <div class="text-slate-600 text-xs mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
               <span>Granted ${new Date(g.grant_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
               <span>Grant price: ${fmtUSD(g.grant_price)}/sh</span>
-              <span>Total: ${fmtAmt(g.total_shares,false)} shares</span>
+              <span>Total: ${fmtAmt(g.total_shares)} shares</span>
               <span>Schedule: ${g.vest_pct_per_period}% every ${g.vest_interval_months}mo</span>
             </div>
           </div>
@@ -2226,7 +2338,7 @@ function renderGrants(){
         </div>
         <div>
           <div class="text-slate-600 text-xs mb-0.5">Unvested shares</div>
-          <div class="text-white font-medium">${fmtAmt(unvestedShares,false)} <span class="text-slate-600 text-xs">of ${fmtAmt(g.total_shares,false)}</span></div>
+          <div class="text-white font-medium">${fmtAmt(unvestedShares)} <span class="text-slate-600 text-xs">of ${fmtAmt(g.total_shares)}</span></div>
         </div>
         <div>
           <div class="text-slate-600 text-xs mb-0.5">Unvested value</div>
@@ -2377,8 +2489,8 @@ function renderGrantsTimeline(){
               const lot  = allLots.find(l => l.gi === item.datasetIndex && localDateStr(l.vest_date) === dl);
               if(!lot) return null;
               const price = S.grantPrices[g.symbol] ?? null;
-              const valStr = price != null ? ` = $${item.raw.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '';
-              return ` ${g.symbol}: ${lot.shares.toLocaleString('en-US',{maximumFractionDigits:4})} shares${valStr}`;
+              const valStr = price != null ? ` = ${fmtUSD(item.raw)}` : '';
+              return ` ${g.symbol}: ${fmtAmt(lot.shares)} shares${valStr}`;
             },
           },
         },
@@ -2395,7 +2507,7 @@ function renderGrantsTimeline(){
           ticks: {
             color: '#64748b',
             font:  { size: 11 },
-            callback: v => isPriceAvail ? '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0)) : v,
+            callback: v => S.privacy ? '' : (isPriceAvail ? '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0)) : v),
           },
           title: { display: true, text: yLabel, color: '#475569', font: { size: 11 } },
         },
@@ -2411,7 +2523,7 @@ function renderGrantsTimeline(){
     else {
       upcomingEl.innerHTML = future.map(l => {
         const days = Math.ceil((l.vest_date - today) / 86400000);
-        const val  = l.price != null ? `<span class="font-semibold" style="color:#a78bfa">$${(l.shares * l.price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>` : '—';
+        const val  = l.price != null ? `<span class="font-semibold" style="color:#a78bfa">${fmtUSD(l.shares * l.price)}</span>` : '—';
         return `<div class="flex items-center justify-between px-6 py-3 hover:bg-white/[0.02]">
           <div class="flex items-center gap-3">
             <div class="text-center min-w-[48px]">
@@ -2425,7 +2537,7 @@ function renderGrantsTimeline(){
           </div>
           <div class="text-right">
             <div>${val}</div>
-            <div class="text-slate-600 text-xs">${l.shares.toLocaleString('en-US',{maximumFractionDigits:4})} sh · ${days}d</div>
+            <div class="text-slate-600 text-xs">${fmtAmt(l.shares)} sh · ${days}d</div>
           </div>
         </div>`;
       }).join('<div class="border-t border-white/[0.04]"></div>');
@@ -3117,13 +3229,57 @@ function renderPerfSummary(){
   const {total_realized_pnl:pnl, total_dividends:div, total_fees:fees, by_symbol:byS}=S.perf;
   const {html,cls}=fmtPnl(pnl);
   const pnlEl=document.getElementById('hist-pnl'); pnlEl.innerHTML=html; pnlEl.className='font-bold text-xl '+cls;
-  // Unrealized P&L (computed client-side via current prices)
-  const unreal = S.perf.unrealized_pnl ?? 0;
+
+  // Unrealized P&L — prefer Schwab Live when available. Schwab knows the *real*
+  // remaining cost basis (their server tracks specific lot picks); FIFO from our
+  // CSV+API data over/understates basis whenever the user used HIFO/specific-lot
+  // selection at sale time. Fall back to FIFO only when Schwab Live isn't loaded.
+  let unreal, unrealSource, ltRatio = null;
+  const sLive = S.schwabPositions;
+  const sLivePositions = sLive?.accounts?.flatMap(a => a.positions || []) || [];
+  if(sLivePositions.length){
+    unreal = sLivePositions.reduce((s,p)=>s+(p.unrealized_pnl||0), 0);
+    unrealSource = 'schwab';
+    // For LT/ST split, use FIFO's per-symbol LT-vs-ST proportions applied to
+    // Schwab's per-symbol unrealized. Falls back to overall ratio if a symbol
+    // has FIFO data missing.
+    const fifoLT = S.perf.unrealized_lt_pnl ?? 0;
+    const fifoST = S.perf.unrealized_st_pnl ?? 0;
+    const fifoTot = fifoLT + fifoST;
+    ltRatio = Math.abs(fifoTot) > 0.01 ? (fifoLT / fifoTot) : 0;
+  } else {
+    unreal = S.perf.unrealized_pnl ?? 0;
+    unrealSource = 'fifo';
+  }
   const {html:uh, cls:uc} = fmtPnl(unreal);
-  const uEl = document.getElementById('hist-unreal'); if(uEl){ uEl.innerHTML = uh; uEl.className = 'font-bold text-xl '+uc; }
+  const uEl = document.getElementById('hist-unreal');
+  if(uEl){ uEl.innerHTML = uh; uEl.className = 'font-bold text-xl '+uc; }
+
   document.getElementById('hist-div').textContent =fmtUSD(div);
   document.getElementById('hist-fees').textContent=fmtUSD(fees);
   document.getElementById('hist-symbols').textContent=Object.keys(byS).length;
+
+  // Long-term vs short-term tax-lot summary
+  const setPnlChip = (id, val) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const {html:h, cls:c} = fmtPnl(val);
+    el.innerHTML = h;
+    el.className = 'font-bold text-xl ' + c;
+  };
+  // If we have Schwab Live total, split it by FIFO's LT/ST proportion.
+  // Otherwise use FIFO numbers directly.
+  if(unrealSource === 'schwab' && ltRatio !== null){
+    setPnlChip('hist-unreal-lt', unreal * ltRatio);
+    setPnlChip('hist-unreal-st', unreal * (1 - ltRatio));
+  } else {
+    setPnlChip('hist-unreal-lt', S.perf.unrealized_lt_pnl ?? 0);
+    setPnlChip('hist-unreal-st', S.perf.unrealized_st_pnl ?? 0);
+  }
+  setPnlChip('hist-real-lt',   S.perf.realized_lt_ytd ?? 0);
+  setPnlChip('hist-real-st',   S.perf.realized_st_ytd ?? 0);
+  const yearEl = document.getElementById('hist-real-ytd-year');
+  if(yearEl && S.perf.realized_ytd_year) yearEl.textContent = S.perf.realized_ytd_year;
 }
 
 // ── Sort helpers ───────────────────────────────────────────────
@@ -3468,7 +3624,7 @@ function renderTx(){
         ${t.is_option?`<span class="text-xs ml-1 px-1 rounded" style="background:rgba(139,92,246,.15);color:#a78bfa">opt</span>`:''}
       </td>
       <td class="px-5 py-3 text-slate-500 text-xs max-w-xs truncate">${t.description||''}</td>
-      <td class="px-5 py-3 text-right text-slate-400 text-sm whitespace-nowrap">${t.quantity!=null?fmtAmt(t.quantity,false):'—'}</td>
+      <td class="px-5 py-3 text-right text-slate-400 text-sm whitespace-nowrap">${t.quantity!=null?fmtAmt(t.quantity):'—'}</td>
       <td class="px-5 py-3 text-right text-slate-400 text-sm whitespace-nowrap">${t.price!=null?fmtPrice(t.price):'—'}</td>
       <td class="px-5 py-3 text-right text-slate-400 text-sm whitespace-nowrap">${mktPrice!=null?fmtPrice(mktPrice):'<span class="text-slate-700">—</span>'}</td>
       <td class="px-5 py-3 text-right whitespace-nowrap">
@@ -3605,6 +3761,16 @@ async function init(){
     toast('Schwab error: ' + params.get('schwab_error'), 'err');
   }
 
+  // Handle Plaid OAuth callback redirect (Chase, BofA, etc.)
+  const plaidItem = params.get('plaid_connected');
+  if(plaidItem){
+    history.replaceState({}, '', '/');
+    toast('Bank connected — syncing transactions…', 'ok');
+    S.tab = 'connections';
+    localStorage.setItem('pt_tab', 'connections');
+    setTimeout(()=>{ plaidSyncOne(plaidItem); }, 100);
+  }
+
   setTab(S.tab);
   await Promise.all([loadHoldings(),loadAccounts(),loadLoans(),loadGrants(),loadImports()]);
   await loadPrices();
@@ -3618,6 +3784,7 @@ async function init(){
     await attachPricesToPerf(perf);
     S.perf = perf;
     renderOverview();
+    if(S.tab === 'schwab') renderPerfSummary();   // fill chips if already on Schwab tab
   }).catch(()=>{});
   loadSchwabStatus();
 }
@@ -3718,7 +3885,9 @@ async function loadSchwabPositions(){
   // Fetch live quotes (daily change) for all positions including options
   if(S.schwabPositions?.accounts?.length){
     const allSyms = S.schwabPositions.accounts.flatMap(a=>a.positions.map(p=>p.symbol).filter(Boolean));
-    const equities = [...new Set(allSyms.filter(s=>!s.includes(' ')))];
+    // Include each option's underlying ticker so the option row can display the equity's spot price
+    const optionUnderlyings = allSyms.filter(s=>s.includes(' ')).map(s=>s.split(' ')[0]).filter(Boolean);
+    const equities = [...new Set([...allSyms.filter(s=>!s.includes(' ')), ...optionUnderlyings])];
     // Convert option symbols to OCC format; keep a reverse map to restore original symbol
     const occMap = {}; // OCC → original
     for(const sym of allSyms){
@@ -3743,6 +3912,8 @@ async function loadSchwabPositions(){
   renderSchwabPositions();
   renderOverview();
   renderAccountsSchwab();
+  // Schwab Live is the source of truth for unrealized chips — re-render now that data is in
+  if(S.perf) renderPerfSummary();
 }
 
 async function refreshSchwabPositions(){ await loadSchwabPositions(); }
@@ -3907,6 +4078,16 @@ function renderSchwabPositions(){
             <div style="min-width:0">
               <div class="flex items-center gap-1"><span class="text-white font-semibold text-sm">${p.symbol}</span>${lotsBtn}</div>
               ${p.description?`<div class="text-slate-600 text-xs leading-snug" style="max-width:160px">${p.description}</div>`:''}
+              ${(()=>{
+                if(!isOption(p)) return '';
+                const u = (p.symbol||'').split(' ')[0];
+                const uq = u ? S.schwabQuotes[u] : null;
+                if(!u || !uq || uq.price==null) return '';
+                const chgPct = uq.change_pct;
+                const chgCls = chgPct==null ? 'text-slate-600' : (chgPct>=0 ? 'text-green-400' : 'text-red-400');
+                const chgStr = chgPct==null ? '' : ` <span class="${chgCls}">${chgPct>=0?'+':''}${chgPct.toFixed(2)}%</span>`;
+                return `<div class="text-slate-600 text-xs leading-snug mt-0.5">${u} <span class="text-slate-400">${fmtPrice(uq.price, true)}</span>${chgStr}</div>`;
+              })()}
             </div>
           </div>
         </td>
@@ -4047,6 +4228,174 @@ async function fetchSchwabHistory(){
   } finally {
     if(btn){ btn.disabled=false; btn.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Fetch from Schwab API`; }
   }
+}
+
+// ── Plaid: connections tab ─────────────────────────────────────
+async function loadPlaidStatus(){
+  try {
+    S.plaidStatus = await api.get('/api/plaid/status');
+  } catch(e) {
+    S.plaidStatus = {configured:false, items:[]};
+  }
+  renderPlaid();
+}
+
+function renderPlaid(){
+  const s = S.plaidStatus || {configured:false, items:[]};
+  document.getElementById('plaid-not-configured').classList.toggle('hidden', !!s.configured);
+  document.getElementById('plaid-configured').classList.toggle('hidden', !s.configured);
+
+  // Show JSON parse error inline if config exists but is malformed
+  let errEl = document.getElementById('plaid-config-error');
+  if(s.config_error){
+    if(!errEl){
+      errEl = document.createElement('div');
+      errEl.id = 'plaid-config-error';
+      errEl.className = 'mt-3 text-xs px-3 py-2 rounded-lg';
+      errEl.style.cssText = 'background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:#fca5a5;font-family:monospace';
+      document.getElementById('plaid-not-configured').parentElement.appendChild(errEl);
+    }
+    errEl.textContent = 'Config parse error: ' + s.config_error;
+    errEl.classList.remove('hidden');
+  } else if(errEl){
+    errEl.classList.add('hidden');
+  }
+
+  const envPill = document.getElementById('plaid-env-pill');
+  if(s.configured && s.env){
+    envPill.textContent = s.env;
+    envPill.classList.remove('hidden');
+  } else {
+    envPill.classList.add('hidden');
+  }
+
+  const items = s.items || [];
+  document.getElementById('plaid-items-card').classList.toggle('hidden', !s.configured || items.length===0);
+  document.getElementById('plaid-items-empty').classList.toggle('hidden', !s.configured || items.length>0);
+
+  const list = document.getElementById('plaid-items-list');
+  list.innerHTML = items.map(it => {
+    const accts = (it.accounts||[]).map(a => {
+      const mask = a.mask ? ` ···${a.mask}` : '';
+      const t = (a.type||'').toUpperCase();
+      const sub = a.subtype ? ` · ${a.subtype}` : '';
+      return `<div class="text-xs text-slate-400">${escapeHTML(a.name||'Account')}${escapeHTML(mask)}<span class="text-slate-600 ml-1">${escapeHTML(t)}${escapeHTML(sub)}</span></div>`;
+    }).join('');
+    const last = it.last_synced_at ? fmtDatetime(it.last_synced_at) : 'never';
+    return `
+      <div class="px-6 py-4 flex items-start justify-between gap-3 flex-wrap">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></div>
+            <p class="font-semibold text-white text-sm">${escapeHTML(it.institution_name||'Unknown')}</p>
+          </div>
+          <div class="ml-4 space-y-0.5">${accts || '<div class="text-xs text-slate-600">No accounts</div>'}</div>
+          <p class="text-slate-700 text-xs mt-2 ml-4">Last synced: ${escapeHTML(last)}</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="plaidSyncOne('${it.item_id}')" class="btn-ghost text-xs py-1.5">Sync</button>
+          <button onclick="plaidReauth('${it.item_id}')" class="btn-ghost text-xs py-1.5">Reconnect</button>
+          <button onclick="plaidDisconnect('${it.item_id}')" class="btn-ghost text-xs py-1.5" style="color:#f87171;border-color:rgba(248,113,113,.2)">Remove</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHTML(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function plaidConnect(itemId){
+  if(S.plaidBusy) return;
+  S.plaidBusy = true;
+  const btn = document.getElementById('plaid-connect-btn');
+  if(btn){ btn.disabled = true; }
+  try {
+    if(typeof Plaid === 'undefined'){
+      toast('Plaid Link SDK failed to load. Check your network.', 'err');
+      return;
+    }
+    const body = itemId ? {item_id: itemId} : {};
+    const res = await api.post('/api/plaid/link-token', body);
+    if(res.error){ toast('Plaid: ' + res.error, 'err'); return; }
+
+    // Stash for OAuth redirect flow (Chase et al). The /plaid-callback page reads
+    // this back to re-open Link in received-redirect mode. Harmless for Sandbox.
+    sessionStorage.setItem('plaid_link_token', res.link_token);
+
+    const handler = Plaid.create({
+      token: res.link_token,
+      onSuccess: async (public_token, metadata) => {
+        sessionStorage.removeItem('plaid_link_token');
+        try {
+          const r = await api.post('/api/plaid/exchange', {public_token});
+          if(r.error){ toast('Exchange failed: ' + r.error, 'err'); return; }
+          toast(`Connected ${r.institution_name || 'institution'}`, 'ok');
+          await loadPlaidStatus();
+          await plaidSyncOne(r.item_id);
+        } catch(e){
+          toast('Exchange failed', 'err');
+        }
+      },
+      onExit: (err, metadata) => {
+        sessionStorage.removeItem('plaid_link_token');
+        if(err) toast('Plaid Link: ' + (err.error_message || err.error_code || 'cancelled'), 'err');
+      },
+    });
+    handler.open();
+  } finally {
+    S.plaidBusy = false;
+    if(btn){ btn.disabled = false; }
+  }
+}
+
+async function plaidReauth(itemId){ return plaidConnect(itemId); }
+
+async function plaidSyncOne(itemId){
+  const btn = document.getElementById('plaid-sync-btn');
+  if(btn){ btn.disabled = true; }
+  try {
+    const res = await api.post('/api/plaid/sync', {item_id: itemId});
+    if(res.error){ toast('Sync failed: ' + res.error, 'err'); return; }
+    const r = (res.results || [])[0] || {};
+    if(r.error){ toast('Sync: ' + r.error, 'err'); }
+    else toast(`Synced: +${r.added||0} new, ${r.modified||0} updated, ${r.removed||0} removed`, 'ok');
+    await loadPlaidStatus();
+  } finally {
+    if(btn){ btn.disabled = false; }
+  }
+}
+
+async function plaidSyncAll(){
+  const btn = document.getElementById('plaid-sync-btn');
+  if(btn){ btn.disabled = true; }
+  try {
+    const res = await api.post('/api/plaid/sync', {});
+    if(res.error){ toast('Sync failed: ' + res.error, 'err'); return; }
+    const totals = (res.results||[]).reduce((acc,r)=>{
+      if(r.error) return acc;
+      acc.added    += r.added    || 0;
+      acc.modified += r.modified || 0;
+      acc.removed  += r.removed  || 0;
+      return acc;
+    },{added:0,modified:0,removed:0});
+    const anyErr = (res.results||[]).find(r => r.error);
+    if(anyErr) toast('Some items failed: ' + anyErr.error, 'err');
+    else toast(`Synced: +${totals.added} new, ${totals.modified} updated, ${totals.removed} removed`, 'ok');
+    await loadPlaidStatus();
+  } finally {
+    if(btn){ btn.disabled = false; }
+  }
+}
+
+async function plaidDisconnect(itemId){
+  const item = (S.plaidStatus?.items || []).find(i => i.item_id === itemId);
+  const name = item?.institution_name || 'this institution';
+  if(!confirm(`Remove ${name} and delete its imported transactions?`)) return;
+  const r = await fetch('/api/plaid/items/' + encodeURIComponent(itemId), {method:'DELETE'}).then(r=>r.json());
+  if(r.error){ toast('Remove failed: ' + r.error, 'err'); return; }
+  toast(`Removed. ${r.removed_bank_transactions||0} bank + ${r.removed_cc_transactions||0} CC txs deleted.`, 'ok');
+  await loadPlaidStatus();
 }
 
 init();

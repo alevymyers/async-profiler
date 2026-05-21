@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plaid — finishing connection…</title>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <style>
+    body { margin:0; background:#050709; color:#cbd5e1; font-family:system-ui,sans-serif;
+           display:flex; align-items:center; justify-content:center; height:100vh; }
+    .box { text-align:center; max-width:420px; padding:24px; }
+    .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,.15);
+               border-top-color:#22d3ee; border-radius:50%; animation:spin .8s linear infinite;
+               display:inline-block; vertical-align:middle; margin-right:10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err { color:#f87171; font-size:13px; margin-top:12px; }
+    a { color:#22d3ee; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <p id="msg"><span class="spinner"></span>Finishing connection…</p>
+    <p id="err" class="err" style="display:none"></p>
+    <p id="back" style="display:none"><a href="/">← Back to portfolio</a></p>
+  </div>
+<script>
+(function(){
+  const msgEl = document.getElementById('msg');
+  const errEl = document.getElementById('err');
+  const backEl = document.getElementById('back');
+  function fail(text){
+    msgEl.textContent = 'Could not finish Plaid connection.';
+    errEl.textContent = text;
+    errEl.style.display = 'block';
+    backEl.style.display = 'block';
+  }
+
+  const linkToken = sessionStorage.getItem('plaid_link_token');
+  if(!linkToken){
+    fail('No link_token in sessionStorage — start the connection from the Connections tab.');
+    return;
+  }
+  if(typeof Plaid === 'undefined'){
+    fail('Plaid SDK failed to load.');
+    return;
+  }
+
+  const handler = Plaid.create({
+    token: linkToken,
+    // Tell Link this page is the OAuth return — it reads URL params (oauth_state_id) itself.
+    receivedRedirectUri: window.location.href,
+    onSuccess: async (public_token, metadata) => {
+      msgEl.innerHTML = '<span class="spinner"></span>Exchanging token…';
+      try {
+        const r = await fetch('/api/plaid/exchange', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({public_token}),
+        }).then(r=>r.json());
+        if(r.error){ fail(r.error); return; }
+        sessionStorage.removeItem('plaid_link_token');
+        // Hand off back to the main app, which will sync the new item.
+        window.location.href = '/?plaid_connected=' + encodeURIComponent(r.item_id || '');
+      } catch(e){
+        fail(String(e));
+      }
+    },
+    onExit: (err, metadata) => {
+      sessionStorage.removeItem('plaid_link_token');
+      if(err) fail(err.error_message || err.error_code || 'cancelled');
+      else window.location.href = '/';
+    },
+  });
+  handler.open();
+})();
+</script>
+</body>
+</html>
